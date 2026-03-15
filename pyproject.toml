@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "brix-protocol"
+version = "0.1.0"
+description = "Runtime Reliability Infrastructure for LLM Pipelines"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Serhii Kravchenko" },
+]
+keywords = ["llm", "reliability", "uncertainty", "ai-safety", "balance-index"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.0,<3.0",
+    "pyyaml>=6.0",
+    "pyahocorasick>=2.0.0",
+    "sentence-transformers>=3.0",
+    "numpy>=1.24",
+    "typer>=0.12",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.30"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+all = ["brix-protocol[openai,anthropic]"]
+
+[project.scripts]
+brix = "brix.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/Serhii2009/brix-protocol"
+Repository = "https://github.com/Serhii2009/brix-protocol"
+Issues = "https://github.com/Serhii2009/brix-protocol/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/brix"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.coverage.run]
+source = ["brix"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80

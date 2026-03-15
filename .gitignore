@@ -1,0 +1,40 @@
+# BRIX — Strategic Documents (not for public)
+BRIX_MASTER_DOCUMENT.md
+BRIX_Implementation_Plan*.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# BRIX runtime logs
+*.jsonl
+generated_tests/
+
+# API keys — never commit
+.env
+.env.*
