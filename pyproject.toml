@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "brix-protocol"
-version = "0.1.2"
+version = "0.2.0"
 description = "Runtime Reliability Infrastructure for LLM Pipelines"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 authors = [
     { name = "Serhii Kravchenko" },
 ]

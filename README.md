@@ -6,10 +6,10 @@
 
 _Enforce deterministic rules. Measure the Balance Index. Audit every decision._
 
-[![PyPI version](https://img.shields.io/pypi/v/brix-protocol)](https://pypi.org/project/brix-protocol/)
+[![PyPI version](https://img.shields.io/pypi/v/brix-protocol?cache=no)](https://pypi.org/project/brix-protocol/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-84%25-brightgreen.svg)]()
 
 </div>
 
