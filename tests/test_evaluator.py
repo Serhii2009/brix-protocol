@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from brix.engine.evaluator import TwoTrackEvaluator
-from brix.engine.signal_index import SignalIndex
-from brix.spec.models import SpecModel
+from brix.regulated.engine.evaluator import TwoTrackEvaluator
+from brix.regulated.engine.signal_index import SignalIndex
+from brix.regulated.spec.models import SpecModel
 
 
 class TestTwoTrackEvaluator:

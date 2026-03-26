@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from uuid import UUID, uuid4
 
-from brix.core.result import ActionTaken, StructuredResult, UncertaintyType
+from brix.regulated.core.result import ActionTaken, StructuredResult, UncertaintyType
 
 
 class TestStructuredResult:

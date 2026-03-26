@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from brix.analysis.consistency import ConsistencyResult, SemanticConsistencyAnalyzer
+from brix.regulated.analysis.consistency import ConsistencyResult, SemanticConsistencyAnalyzer
 
 
 @pytest.fixture(scope="module")

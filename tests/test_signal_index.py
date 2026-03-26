@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from brix.engine.signal_index import SignalIndex, SignalMatch
-from brix.spec.models import SpecModel
+from brix.regulated.engine.signal_index import SignalIndex, SignalMatch
+from brix.regulated.spec.models import SpecModel
 
 
 class TestSignalIndex:

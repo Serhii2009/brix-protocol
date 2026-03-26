@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from brix.analysis.consistency import ConsistencyResult
-from brix.llm.mock import MockLLMClient
-from brix.spec.loader import load_spec, load_spec_from_dict
-from brix.spec.models import SpecModel
+from brix.regulated.analysis.consistency import ConsistencyResult
+from brix.regulated.llm.mock import MockLLMClient
+from brix.regulated.spec.loader import load_spec, load_spec_from_dict
+from brix.regulated.spec.models import SpecModel
 
 
 @pytest.fixture
@@ -112,7 +112,7 @@ def mock_llm() -> MockLLMClient:
 @pytest.fixture
 def builtin_spec_path() -> Path:
     """Path to the built-in general v1.0.0 spec."""
-    from brix.spec.defaults import get_default_spec_path
+    from brix.regulated.spec.defaults import get_default_spec_path
     return get_default_spec_path()
 
 

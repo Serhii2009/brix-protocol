@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from brix.balance.tracker import BalanceTracker
+from brix.regulated.balance.tracker import BalanceTracker
 
 
 class TestBalanceTracker:

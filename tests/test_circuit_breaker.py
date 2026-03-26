@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from brix.engine.circuit_breaker import CircuitBreakerTrack
-from brix.engine.signal_index import SignalIndex
-from brix.spec.models import SpecModel
+from brix.regulated.engine.circuit_breaker import CircuitBreakerTrack
+from brix.regulated.engine.signal_index import SignalIndex
+from brix.regulated.spec.models import SpecModel
 
 
 class TestCircuitBreakerTrack:

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from brix.llm.mock import MockLLMClient
-from brix.sampling.sampler import AdaptiveSampler
-from brix.sampling.tiers import RiskTier, SamplingConfig, determine_tier, samples_for_tier
+from brix.regulated.llm.mock import MockLLMClient
+from brix.regulated.sampling.sampler import AdaptiveSampler
+from brix.regulated.sampling.tiers import RiskTier, SamplingConfig, determine_tier, samples_for_tier
 
 
 class TestTierMapping:

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from brix.engine.risk_scorer import RiskScoreTrack
-from brix.engine.signal_index import SignalIndex
-from brix.spec.models import SpecModel
+from brix.regulated.engine.risk_scorer import RiskScoreTrack
+from brix.regulated.engine.signal_index import SignalIndex
+from brix.regulated.spec.models import SpecModel
 
 
 class TestRiskScoreTrack:

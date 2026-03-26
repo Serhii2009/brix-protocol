@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from brix.core.exceptions import SpecValidationError
-from brix.spec.loader import load_spec, load_spec_from_dict
-from brix.spec.models import SpecModel
+from brix.regulated.core.exceptions import SpecValidationError
+from brix.regulated.spec.loader import load_spec, load_spec_from_dict
+from brix.regulated.spec.models import SpecModel
 
 
 class TestLoadSpecFromDict:

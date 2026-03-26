@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "brix-protocol"
-version = "0.3.0"
+version = "0.4.0"
 description = "Runtime Reliability Infrastructure for LLM Pipelines"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Serhii Kravchenko" },
 ]
@@ -25,15 +25,18 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0,<3.0",
+    "pydantic-settings>=2.0",
     "pyyaml>=6.0",
     "pyahocorasick>=2.0.0",
-    "sentence-transformers>=3.0",
-    "numpy>=1.24",
     "typer>=0.12",
     "rich>=13.0",
 ]
 
 [project.optional-dependencies]
+regulated = [
+    "sentence-transformers>=2.2.0",
+    "numpy>=1.24",
+]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.30"]
 dev = [
@@ -42,8 +45,9 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.4",
     "mypy>=1.10",
+    "pre-commit>=3.0",
 ]
-all = ["brix-protocol[openai,anthropic]"]
+all = ["brix-protocol[regulated,openai,anthropic]"]
 
 [project.scripts]
 brix = "brix.cli.main:app"

@@ -6,7 +6,7 @@ import json
 
 from typer.testing import CliRunner
 
-from brix.cli.main import app
+from brix.regulated.cli.main import app
 
 runner = CliRunner()
 

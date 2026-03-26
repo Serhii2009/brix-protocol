@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from brix.analysis.classifier import UncertaintyClassifier
-from brix.analysis.consistency import ConsistencyResult
-from brix.core.result import UncertaintyType
+from brix.regulated.analysis.classifier import UncertaintyClassifier
+from brix.regulated.analysis.consistency import ConsistencyResult
+from brix.regulated.core.result import UncertaintyType
 
 
 class MockAnalyzerForClassifier:

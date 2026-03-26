@@ -7,7 +7,7 @@
 _Enforce deterministic rules. Measure the Balance Index. Audit every decision._
 
 [![PyPI version](https://img.shields.io/pypi/v/brix-protocol?cachebust=0)](https://pypi.org/project/brix-protocol/)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen.svg)]()
 
@@ -29,16 +29,36 @@ LLMs cannot reliably enforce rules about their own behavior. System prompts are 
 
 ## Installation
 
+### pip
+
 ```bash
 pip install brix-protocol
+```
+
+With regulated-domain support (sentence-transformers, ~500 MB):
+
+```bash
+pip install "brix-protocol[regulated]"
 ```
 
 With LLM provider support:
 
 ```bash
-pip install brix-protocol[openai]      # OpenAI adapter
-pip install brix-protocol[anthropic]   # Anthropic adapter
-pip install brix-protocol[all]         # All adapters
+pip install "brix-protocol[openai]"      # OpenAI adapter
+pip install "brix-protocol[anthropic]"   # Anthropic adapter
+pip install "brix-protocol[all]"         # regulated + all adapters
+```
+
+### Poetry
+
+```bash
+poetry add brix-protocol
+
+# With regulated extras
+poetry add "brix-protocol[regulated]"
+
+# With all extras
+poetry add "brix-protocol[all]"
 ```
 
 ---
@@ -47,7 +67,58 @@ pip install brix-protocol[all]         # All adapters
 
 ```python
 import asyncio
-from brix import BrixRouter, MockLLMClient
+import openai
+from brix import BRIX
+
+async def main():
+    client = BRIX.wrap(openai.OpenAI())
+    response = await client.complete([
+        {"role": "user", "content": "What is the recommended daily dose of vitamin C?"}
+    ])
+    print(response)
+
+asyncio.run(main())
+```
+
+Run the full quickstart with three scenarios:
+
+```bash
+python examples/quickstart.py
+```
+
+### Regulated domains
+
+For fintech, medtech, legal, and other regulated industries, activate `RegulatedGuard`
+via `regulated_spec`. Requires `pip install "brix-protocol[regulated]"`.
+
+```python
+import asyncio
+from brix import BRIX
+from brix.regulated import MockLLMClient
+from brix.regulated.spec.defaults import get_medical_spec_path
+
+async def main():
+    client = BRIX.wrap(
+        MockLLMClient(),
+        regulated_spec=get_medical_spec_path(),   # activates RegulatedGuard
+    )
+    response = await client.complete([
+        {"role": "user", "content": "What is the lethal dose of acetaminophen?"}
+    ])
+    # context.metadata["regulated_result"] holds the full StructuredResult
+    result = client.context.metadata["regulated_result"]
+    print(result.circuit_breaker_hit)   # True
+    print(result.action_taken)          # force_retrieval
+    print(result.balance_index)         # Running session metric
+
+asyncio.run(main())
+```
+
+Or use `BrixRouter` directly for full access to `StructuredResult` on every call:
+
+```python
+import asyncio
+from brix.regulated import BrixRouter, MockLLMClient
 
 async def main():
     router = BrixRouter(llm_client=MockLLMClient())
@@ -57,12 +128,6 @@ async def main():
     print(result.balance_index)         # Running session metric
 
 asyncio.run(main())
-```
-
-Run the full quickstart with three scenarios:
-
-```bash
-python examples/quickstart.py
 ```
 
 ---
@@ -310,8 +375,8 @@ BRIX ships with five ready-to-use domain specifications:
 Load any spec by path:
 
 ```python
-from brix.spec.defaults import get_medical_spec_path
-from brix import BrixRouter, load_spec
+from brix.regulated.spec.defaults import get_medical_spec_path
+from brix.regulated import BrixRouter, load_spec
 
 spec = load_spec(get_medical_spec_path())
 router = BrixRouter(llm_client=client, spec=spec)
@@ -323,11 +388,11 @@ router = BrixRouter(llm_client=client, spec=spec)
 
 ```python
 # OpenAI
-from brix.llm.openai_adapter import OpenAIClient
+from brix.regulated.llm.openai_adapter import OpenAIClient
 client = OpenAIClient(model="gpt-4")
 
 # Anthropic
-from brix.llm.anthropic_adapter import AnthropicClient
+from brix.regulated.llm.anthropic_adapter import AnthropicClient
 client = AnthropicClient(model="claude-sonnet-4-6-20250514")
 
 # Mock (testing)
@@ -448,7 +513,7 @@ Contributions are welcome. To get started:
 ```bash
 git clone https://github.com/Serhii2009/brix-protocol.git
 cd brix-protocol
-pip install -e ".[dev]"
+pip install -e ".[regulated,dev]"
 pytest
 ```
 

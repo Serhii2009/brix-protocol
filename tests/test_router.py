@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from brix.core.result import ActionTaken, UncertaintyType
-from brix.core.router import BrixRouter
-from brix.llm.mock import MockLLMClient
-from brix.spec.models import SpecModel
+from brix.regulated.core.result import ActionTaken, UncertaintyType
+from brix.regulated.core.router import BrixRouter
+from brix.regulated.llm.mock import MockLLMClient
+from brix.regulated.spec.models import SpecModel
 from tests.conftest import MockAnalyzer
 
 

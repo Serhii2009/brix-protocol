@@ -12,22 +12,22 @@ from uuid import uuid4
 
 import pytest
 
-from brix.actions.executor import ActionExecutor, ActionResult
-from brix.balance.tracker import BalanceTracker
-from brix.console.output import print_result
-from brix.core.exceptions import SamplerError
-from brix.core.result import ActionTaken, StructuredResult, UncertaintyType
-from brix.core.router import BrixRouter
-from brix.engine.signal_index import SignalIndex, _normalize
-from brix.llm.mock import MockLLMClient
-from brix.output.analyzer import OutputAnalyzer
-from brix.output.guard import OutputGuard
-from brix.output.result import OutputResult
-from brix.retrieval.protocol import RetrievalProvider, RetrievalResult
-from brix.sampling.sampler import AdaptiveSampler
-from brix.analysis.consistency import ConsistencyResult
-from brix.spec.loader import load_spec_from_dict
-from brix.spec.models import SamplingConfig, SpecModel
+from brix.regulated.actions.executor import ActionExecutor, ActionResult
+from brix.regulated.balance.tracker import BalanceTracker
+from brix.regulated.console.output import print_result
+from brix.regulated.core.exceptions import SamplerError
+from brix.regulated.core.result import ActionTaken, StructuredResult, UncertaintyType
+from brix.regulated.core.router import BrixRouter
+from brix.regulated.engine.signal_index import SignalIndex, _normalize
+from brix.regulated.llm.mock import MockLLMClient
+from brix.regulated.output.analyzer import OutputAnalyzer
+from brix.regulated.output.guard import OutputGuard
+from brix.regulated.output.result import OutputResult
+from brix.regulated.retrieval.protocol import RetrievalProvider, RetrievalResult
+from brix.regulated.sampling.sampler import AdaptiveSampler
+from brix.regulated.analysis.consistency import ConsistencyResult
+from brix.regulated.spec.loader import load_spec_from_dict
+from brix.regulated.spec.models import SamplingConfig, SpecModel
 
 
 class MockAnalyzer:
