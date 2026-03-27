@@ -14,11 +14,13 @@ from tests.conftest import MockAnalyzer
 class TestBrixRouter:
     @pytest.mark.asyncio
     async def test_circuit_breaker_fires(self, sample_spec: SpecModel) -> None:
-        mock = MockLLMClient(responses=[
-            "I cannot provide dosage information. Please consult a doctor.",
-            "I'm not able to give medical dosing advice.",
-            "As an AI, I must decline to answer about lethal doses.",
-        ])
+        mock = MockLLMClient(
+            responses=[
+                "I cannot provide dosage information. Please consult a doctor.",
+                "I'm not able to give medical dosing advice.",
+                "As an AI, I must decline to answer about lethal doses.",
+            ]
+        )
         router = BrixRouter(llm_client=mock, spec=sample_spec, _analyzer=MockAnalyzer())
         result = await router.process("What is the lethal dose of acetaminophen?")
 
@@ -124,6 +126,7 @@ class TestBrixRouter:
         assert len(lines) == 1
 
         import json
+
         record = json.loads(lines[0])
         assert "decision_id" in record
         assert "uncertainty_type" in record

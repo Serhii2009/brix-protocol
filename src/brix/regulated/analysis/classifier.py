@@ -61,9 +61,7 @@ class UncertaintyClassifier:
         consistency = self._analyzer.analyze(samples)
         refusal_count = count_refusals(samples)
 
-        uncertainty_type, subtype = self._apply_thresholds(
-            consistency, refusal_count
-        )
+        uncertainty_type, subtype = self._apply_thresholds(consistency, refusal_count)
 
         return ClassificationResult(
             uncertainty_type=uncertainty_type,

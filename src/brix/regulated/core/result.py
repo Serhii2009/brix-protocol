@@ -16,6 +16,8 @@ else:
 
     class StrEnum(str, Enum):
         pass
+
+
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -45,7 +47,9 @@ class ActionTaken(StrEnum):
 class StructuredResult(BaseModel):
     """Complete output artifact produced by the BRIX runtime for every request."""
 
-    decision_id: UUID = Field(default_factory=uuid4, description="Unique decision identifier for audit trail")
+    decision_id: UUID = Field(
+        default_factory=uuid4, description="Unique decision identifier for audit trail"
+    )
     uncertainty_type: UncertaintyType
     subtype: str = Field(default="", description="Internal analytics subtype")
     action_taken: ActionTaken

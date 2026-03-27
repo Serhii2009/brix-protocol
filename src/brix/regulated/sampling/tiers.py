@@ -12,6 +12,7 @@ else:
     class StrEnum(str, Enum):
         pass
 
+
 from brix.regulated.spec.models import SamplingConfig
 
 
@@ -24,7 +25,9 @@ class RiskTier(StrEnum):
     CIRCUIT_BREAKER = "circuit_breaker"
 
 
-def determine_tier(risk_score: float, circuit_breaker_hit: bool, config: SamplingConfig) -> RiskTier:
+def determine_tier(
+    risk_score: float, circuit_breaker_hit: bool, config: SamplingConfig
+) -> RiskTier:
     """Map a risk score to a risk tier.
 
     Args:

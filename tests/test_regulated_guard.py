@@ -12,7 +12,7 @@ from brix.regulated._guard import (
     _extract_last_user_message,
     _extract_system_message,
 )
-from brix.regulated.core.result import ActionTaken, StructuredResult, UncertaintyType
+from brix.regulated.core.result import StructuredResult
 from brix.regulated.llm.mock import MockLLMClient
 
 
@@ -197,9 +197,7 @@ async def test_pre_call_passes_through_empty_query(
     assert "regulated_result" not in context.metadata
 
 
-async def test_post_call_passes_through(
-    guard: RegulatedGuard, context: ExecutionContext
-) -> None:
+async def test_post_call_passes_through(guard: RegulatedGuard, context: ExecutionContext) -> None:
     request = CallRequest(messages=[{"role": "user", "content": "test"}], model="test")
     response = CallResponse(content="original response")
     result = await guard.post_call(request, response, context)

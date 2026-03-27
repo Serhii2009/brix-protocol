@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 from pathlib import Path
 
 import typer
@@ -13,7 +12,6 @@ from rich.console import Console
 from rich.table import Table
 
 from brix.regulated.core.exceptions import SpecValidationError
-from brix.regulated.core.result import StructuredResult
 from brix.regulated.core.router import BrixRouter
 from brix.regulated.llm.mock import MockLLMClient
 from brix.regulated.spec.loader import load_spec
@@ -23,7 +21,9 @@ console = Console()
 
 def test_cmd(
     spec_file: str = typer.Argument(help="Path to the uncertainty.yaml specification"),
-    model: str = typer.Option("mock", "--model", "-m", help="Model identifier (use 'mock' for testing)"),
+    model: str = typer.Option(
+        "mock", "--model", "-m", help="Model identifier (use 'mock' for testing)"
+    ),
     suite: str | None = typer.Option(None, "--suite", "-s", help="Path to test suite YAML file"),
 ) -> None:
     """Run a test suite against a BRIX specification."""
@@ -38,7 +38,9 @@ def test_cmd(
 
     # Load test suite
     if suite is None:
-        console.print("[yellow]No test suite provided. Use --suite to specify a test file.[/yellow]")
+        console.print(
+            "[yellow]No test suite provided. Use --suite to specify a test file.[/yellow]"
+        )
         console.print("Generate a test suite with: brix generate-tests <spec_file> --output <dir>")
         raise typer.Exit(code=1)
 
@@ -83,7 +85,11 @@ def test_cmd(
 
     reliability = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     utility = tn / (tn + fp) if (tn + fp) > 0 else 0.0
-    balance = 2.0 * reliability * utility / (reliability + utility) if (reliability + utility) > 0 else 0.0
+    balance = (
+        2.0 * reliability * utility / (reliability + utility)
+        if (reliability + utility) > 0
+        else 0.0
+    )
 
     # Display results
     table = Table(title="Test Results")
@@ -100,7 +106,7 @@ def test_cmd(
 
     # Show failing cases
     if failed > 0:
-        console.print(f"\n[red]Failing cases:[/red]")
+        console.print("\n[red]Failing cases:[/red]")
         for r in results:
             if not r["passed"]:
                 console.print(f"  • [bold]{r['name']}[/bold]")
@@ -122,7 +128,7 @@ def test_cmd(
         "balance_index": balance,
         "confusion_matrix": {"tp": tp, "fn": fn, "tn": tn, "fp": fp},
     }
-    console.print(f"\n[dim]JSON Report:[/dim]")
+    console.print("\n[dim]JSON Report:[/dim]")
     console.print(json.dumps(report, indent=2))
 
     if failed > 0:
@@ -130,9 +136,7 @@ def test_cmd(
     raise typer.Exit(code=0)
 
 
-async def _run_tests(
-    router: BrixRouter, test_cases: list[dict]
-) -> list[dict]:
+async def _run_tests(router: BrixRouter, test_cases: list[dict]) -> list[dict]:
     """Run all test cases and collect results."""
     results: list[dict] = []
     for case in test_cases:
@@ -148,18 +152,20 @@ async def _run_tests(
         if expected_cb and not result.circuit_breaker_hit:
             passed = False
 
-        results.append({
-            "name": name,
-            "query": query,
-            "expected_intervention": expected_intervention,
-            "actual_intervention": actual_intervention,
-            "expected_cb": expected_cb,
-            "actual_cb": result.circuit_breaker_hit,
-            "passed": passed,
-            "risk_score": result.risk_score,
-            "uncertainty_type": result.uncertainty_type,
-            "signals": result.signals_triggered,
-        })
+        results.append(
+            {
+                "name": name,
+                "query": query,
+                "expected_intervention": expected_intervention,
+                "actual_intervention": actual_intervention,
+                "expected_cb": expected_cb,
+                "actual_cb": result.circuit_breaker_hit,
+                "passed": passed,
+                "risk_score": result.risk_score,
+                "uncertainty_type": result.uncertainty_type,
+                "signals": result.signals_triggered,
+            }
+        )
 
     return results
 

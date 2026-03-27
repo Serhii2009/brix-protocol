@@ -172,9 +172,7 @@ async def test_post_call_runs_in_reverse_order(
     # We verify that all ran, not the order here (order is inherent in the impl)
 
 
-async def test_empty_chain_calls_llm(
-    request_: CallRequest, context: ExecutionContext
-) -> None:
+async def test_empty_chain_calls_llm(request_: CallRequest, context: ExecutionContext) -> None:
     chain = InterceptorChain([])
     response = await chain.execute(request_, context, _dummy_llm)
     assert response.content == "llm response"
@@ -221,9 +219,7 @@ async def test_post_call_runs_for_completed_guards_when_later_guard_blocks(
 # ---------------------------------------------------------------------------
 
 
-async def test_short_circuit_skips_llm(
-    request_: CallRequest, context: ExecutionContext
-) -> None:
+async def test_short_circuit_skips_llm(request_: CallRequest, context: ExecutionContext) -> None:
     llm_called = False
 
     async def failing_llm(req: CallRequest) -> CallResponse:
@@ -263,9 +259,7 @@ async def test_guards_before_short_circuit_still_run_post_call(
 # ---------------------------------------------------------------------------
 
 
-async def test_guard_can_modify_request(
-    request_: CallRequest, context: ExecutionContext
-) -> None:
+async def test_guard_can_modify_request(request_: CallRequest, context: ExecutionContext) -> None:
     received: list[CallRequest] = []
 
     async def capturing_llm(req: CallRequest) -> CallResponse:
@@ -290,9 +284,7 @@ async def test_post_call_error_raises_internal_error(
         await chain.execute(request_, context, _dummy_llm)
 
 
-async def test_llm_error_propagates(
-    request_: CallRequest, context: ExecutionContext
-) -> None:
+async def test_llm_error_propagates(request_: CallRequest, context: ExecutionContext) -> None:
     async def erroring_llm(req: CallRequest) -> CallResponse:
         raise ConnectionError("network down")
 

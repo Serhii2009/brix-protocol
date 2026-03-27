@@ -49,6 +49,11 @@ class BrixSettings(BaseSettings):
         default="all-MiniLM-L6-v2",
         description="Sentence-transformers model for RegulatedGuard",
     )
+    trace_buffer_size: int = Field(
+        default=1000,
+        ge=0,
+        description="Number of trace entries held in memory by ObservabilityGuard",
+    )
 
 
 @lru_cache(maxsize=1)

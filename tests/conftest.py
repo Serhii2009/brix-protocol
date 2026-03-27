@@ -113,6 +113,7 @@ def mock_llm() -> MockLLMClient:
 def builtin_spec_path() -> Path:
     """Path to the built-in general v1.0.0 spec."""
     from brix.regulated.spec.defaults import get_default_spec_path
+
     return get_default_spec_path()
 
 

@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
-import sys
-from io import StringIO
-from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 
-from brix.regulated.actions.executor import ActionExecutor, ActionResult
+from brix.regulated.actions.executor import ActionExecutor
 from brix.regulated.balance.tracker import BalanceTracker
 from brix.regulated.console.output import print_result
 from brix.regulated.core.exceptions import SamplerError
@@ -20,10 +16,9 @@ from brix.regulated.core.result import ActionTaken, StructuredResult, Uncertaint
 from brix.regulated.core.router import BrixRouter
 from brix.regulated.engine.signal_index import SignalIndex, _normalize
 from brix.regulated.llm.mock import MockLLMClient
-from brix.regulated.output.analyzer import OutputAnalyzer
 from brix.regulated.output.guard import OutputGuard
 from brix.regulated.output.result import OutputResult
-from brix.regulated.retrieval.protocol import RetrievalProvider, RetrievalResult
+from brix.regulated.retrieval.protocol import RetrievalResult
 from brix.regulated.sampling.sampler import AdaptiveSampler
 from brix.regulated.analysis.consistency import ConsistencyResult
 from brix.regulated.spec.loader import load_spec_from_dict
@@ -50,6 +45,7 @@ class MockAnalyzer:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_spec(
     force_retrieval_epistemic: bool = False,
@@ -114,8 +110,13 @@ def _make_spec(
 class MockRetrievalProvider:
     """Mock retrieval provider for testing."""
 
-    def __init__(self, content: str = "Retrieved content.", score: float = 0.9,
-                 sources: list[str] | None = None, fail: bool = False) -> None:
+    def __init__(
+        self,
+        content: str = "Retrieved content.",
+        score: float = 0.9,
+        sources: list[str] | None = None,
+        fail: bool = False,
+    ) -> None:
         self._content = content
         self._score = score
         self._sources = sources or ["doc1.pdf", "doc2.pdf"]
@@ -137,6 +138,7 @@ class MockRetrievalProvider:
 # 1. response_requires_verification=True when CB fires
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_response_requires_verification_on_cb():
     spec = _make_spec()
@@ -151,13 +153,15 @@ async def test_response_requires_verification_on_cb():
 # 2. response_requires_verification=True when EPISTEMIC (no retrieval provider)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_response_requires_verification_on_epistemic():
     spec = _make_spec()
     mock_llm = MockLLMClient(default_response="mock response")
     # Use a low-consistency analyzer to trigger EPISTEMIC
     router = BrixRouter(
-        llm_client=mock_llm, spec=spec,
+        llm_client=mock_llm,
+        spec=spec,
         _analyzer=MockAnalyzer(mean_similarity=0.80, variance=0.05),
     )
     result = await router.process("is it true that the earth is flat?")
@@ -167,6 +171,7 @@ async def test_response_requires_verification_on_epistemic():
 # ---------------------------------------------------------------------------
 # 3. unverified_draft contains samples[0] when verification required
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_unverified_draft_contains_sample():
@@ -181,6 +186,7 @@ async def test_unverified_draft_contains_sample():
 # 4. response field contains only template text (no [RETRIEVAL_NEEDED])
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_response_no_retrieval_needed_marker():
     spec = _make_spec()
@@ -194,6 +200,7 @@ async def test_response_no_retrieval_needed_marker():
 # ---------------------------------------------------------------------------
 # 5. ValueError raised for retrieval_score outside [0.0, 1.0]
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_retrieval_score_negative():
@@ -217,6 +224,7 @@ async def test_retrieval_score_above_one():
 # 6. force_retrieval: true in action_config routes to epistemic handling
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_force_retrieval_from_action_config():
     spec = _make_spec(force_retrieval_epistemic=True)
@@ -237,6 +245,7 @@ async def test_force_retrieval_from_action_config():
 # ---------------------------------------------------------------------------
 # 7. Partial LLM failure
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_partial_llm_failure():
@@ -262,6 +271,7 @@ async def test_partial_llm_failure():
 # 8. SamplerError raised only when ALL samples fail
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_sampler_error_all_fail():
     class AllFailLLM:
@@ -278,6 +288,7 @@ async def test_sampler_error_all_fail():
 # 9. SamplingConfig raises ValueError when low >= medium
 # ---------------------------------------------------------------------------
 
+
 def test_sampling_config_invalid_thresholds():
     with pytest.raises(ValueError, match="low_threshold.*must be strictly less"):
         SamplingConfig(low_threshold=0.70, medium_threshold=0.70)
@@ -291,6 +302,7 @@ def test_sampling_config_invalid_thresholds_inverted():
 # ---------------------------------------------------------------------------
 # 10. BalanceTracker uses injected risk_threshold
 # ---------------------------------------------------------------------------
+
 
 def test_balance_tracker_custom_threshold():
     tracker = BalanceTracker(risk_threshold=0.30)
@@ -325,6 +337,7 @@ def test_balance_tracker_default_threshold():
 # 11. BalanceTracker._pending never exceeds MAX_PENDING
 # ---------------------------------------------------------------------------
 
+
 def test_balance_tracker_bounded_pending():
     tracker = BalanceTracker()
     for i in range(10_001):
@@ -340,6 +353,7 @@ def test_balance_tracker_bounded_pending():
 # ---------------------------------------------------------------------------
 # 12. BalanceTracker prints stderr warning for evicted feedback
 # ---------------------------------------------------------------------------
+
 
 def test_balance_tracker_evicted_feedback_warning(capsys):
     tracker = BalanceTracker()
@@ -368,6 +382,7 @@ def test_balance_tracker_evicted_feedback_warning(capsys):
 # 13. _write_log failure does not raise
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_write_log_failure_no_raise(tmp_path):
     spec = _make_spec()
@@ -378,8 +393,10 @@ async def test_write_log_failure_no_raise(tmp_path):
     log_file = log_path / "nonexistent_dir" / "log.jsonl"
 
     router = BrixRouter(
-        llm_client=mock_llm, spec=spec,
-        log_path=log_file, _analyzer=MockAnalyzer(),
+        llm_client=mock_llm,
+        spec=spec,
+        log_path=log_file,
+        _analyzer=MockAnalyzer(),
     )
     # Should not raise even though log path parent doesn't exist
     result = await router.process("hello world")
@@ -389,6 +406,7 @@ async def test_write_log_failure_no_raise(tmp_path):
 # ---------------------------------------------------------------------------
 # 14. system_prompt is passed through to LLM calls
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_system_prompt_passthrough():
@@ -401,7 +419,8 @@ async def test_system_prompt_passthrough():
 
     spec = _make_spec()
     router = BrixRouter(
-        llm_client=TrackingLLM(), spec=spec,
+        llm_client=TrackingLLM(),
+        spec=spec,
         system_prompt="You are a medical assistant.",
         _analyzer=MockAnalyzer(),
     )
@@ -412,6 +431,7 @@ async def test_system_prompt_passthrough():
 # ---------------------------------------------------------------------------
 # 15. OutputGuard returns clean result when output_signals is empty
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_output_guard_empty_signals():
@@ -426,16 +446,19 @@ async def test_output_guard_empty_signals():
 # 16. OutputGuard output_blocked=True for block-type signal
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_output_guard_block_signal():
-    spec = _make_spec(output_signals=[
-        {
-            "name": "definitive_diagnosis",
-            "patterns": ["you have cancer", "you are diagnosed"],
-            "weight": 0.9,
-            "signal_type": "block",
-        },
-    ])
+    spec = _make_spec(
+        output_signals=[
+            {
+                "name": "definitive_diagnosis",
+                "patterns": ["you have cancer", "you are diagnosed"],
+                "weight": 0.9,
+                "signal_type": "block",
+            },
+        ]
+    )
     guard = OutputGuard(spec, _analyzer=MockAnalyzer())
     result = await guard.analyze("Based on your symptoms, you have cancer.")
     assert result.output_blocked is True
@@ -447,16 +470,19 @@ async def test_output_guard_block_signal():
 # 17. OutputGuard output_blocked=False for pattern in query not response
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_output_guard_pattern_in_query_not_response():
-    spec = _make_spec(output_signals=[
-        {
-            "name": "definitive_diagnosis",
-            "patterns": ["you have cancer"],
-            "weight": 0.9,
-            "signal_type": "block",
-        },
-    ])
+    spec = _make_spec(
+        output_signals=[
+            {
+                "name": "definitive_diagnosis",
+                "patterns": ["you have cancer"],
+                "weight": 0.9,
+                "signal_type": "block",
+            },
+        ]
+    )
     guard = OutputGuard(spec, _analyzer=MockAnalyzer())
     # Pattern is in query, but response is clean
     result = await guard.analyze(
@@ -469,6 +495,7 @@ async def test_output_guard_pattern_in_query_not_response():
 # ---------------------------------------------------------------------------
 # 18. RetrievalProvider called when force_retrieval and provider configured
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_retrieval_provider_called():
@@ -492,6 +519,7 @@ async def test_retrieval_provider_called():
 # 19. RetrievalProvider failure: graceful fallback
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_retrieval_provider_failure():
     spec = _make_spec()
@@ -512,6 +540,7 @@ async def test_retrieval_provider_failure():
 # ---------------------------------------------------------------------------
 # 20. print_result() is no-op when stdout is not a TTY and BRIX_CONSOLE unset
 # ---------------------------------------------------------------------------
+
 
 def test_print_result_noop_non_tty():
     result = StructuredResult(
@@ -538,6 +567,7 @@ def test_print_result_noop_non_tty():
 # 21. print_result() failure never propagates
 # ---------------------------------------------------------------------------
 
+
 def test_print_result_failure_no_propagate():
     result = StructuredResult(
         uncertainty_type=UncertaintyType.CERTAIN,
@@ -562,6 +592,7 @@ def test_print_result_failure_no_propagate():
 # 22. Unicode normalization: non-breaking space matches pattern
 # ---------------------------------------------------------------------------
 
+
 def test_normalize_non_breaking_space():
     spec = _make_spec()
     index = SignalIndex(spec)
@@ -584,6 +615,7 @@ def test_normalize_function():
 # ---------------------------------------------------------------------------
 # Additional coverage: console output with BRIX_CONSOLE=1
 # ---------------------------------------------------------------------------
+
 
 def test_print_result_enabled_via_env():
     result = StructuredResult(
@@ -653,24 +685,27 @@ def test_print_result_elevated():
 # Additional coverage: output analyzer with universal category
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_output_guard_risk_signal():
-    spec = _make_spec(output_signals=[
-        {
-            "name": "return_claim",
-            "patterns": ["guaranteed return"],
-            "weight": 0.8,
-            "category": "registered",
-            "signal_type": "risk",
-        },
-        {
-            "name": "generic_risk",
-            "patterns": ["invest now"],
-            "weight": 0.3,
-            "category": "universal",
-            "signal_type": "risk",
-        },
-    ])
+    spec = _make_spec(
+        output_signals=[
+            {
+                "name": "return_claim",
+                "patterns": ["guaranteed return"],
+                "weight": 0.8,
+                "category": "registered",
+                "signal_type": "risk",
+            },
+            {
+                "name": "generic_risk",
+                "patterns": ["invest now"],
+                "weight": 0.3,
+                "category": "universal",
+                "signal_type": "risk",
+            },
+        ]
+    )
     guard = OutputGuard(spec, _analyzer=MockAnalyzer())
     result = await guard.analyze("This investment offers a guaranteed return. Invest now!")
     assert result.output_blocked is False
@@ -682,17 +717,20 @@ async def test_output_guard_risk_signal():
 # Additional coverage: output analyzer exclude_context
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_output_guard_exclude_context():
-    spec = _make_spec(output_signals=[
-        {
-            "name": "diagnosis",
-            "patterns": ["you have"],
-            "weight": 0.9,
-            "signal_type": "block",
-            "exclude_context": ["educational"],
-        },
-    ])
+    spec = _make_spec(
+        output_signals=[
+            {
+                "name": "diagnosis",
+                "patterns": ["you have"],
+                "weight": 0.9,
+                "signal_type": "block",
+                "exclude_context": ["educational"],
+            },
+        ]
+    )
     guard = OutputGuard(spec, _analyzer=MockAnalyzer())
     result = await guard.analyze(
         "you have a condition",

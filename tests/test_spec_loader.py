@@ -28,39 +28,49 @@ class TestLoadSpecFromDict:
 
     def test_missing_name_raises(self) -> None:
         with pytest.raises(SpecValidationError):
-            load_spec_from_dict({
-                "metadata": {"version": "1.0.0", "domain": "test"},
-            })
+            load_spec_from_dict(
+                {
+                    "metadata": {"version": "1.0.0", "domain": "test"},
+                }
+            )
 
     def test_empty_cb_patterns_raises(self) -> None:
         with pytest.raises(SpecValidationError):
-            load_spec_from_dict({
-                "metadata": {"name": "t", "version": "1", "domain": "t"},
-                "circuit_breakers": [{"name": "bad", "patterns": []}],
-            })
+            load_spec_from_dict(
+                {
+                    "metadata": {"name": "t", "version": "1", "domain": "t"},
+                    "circuit_breakers": [{"name": "bad", "patterns": []}],
+                }
+            )
 
     def test_weight_out_of_range_raises(self) -> None:
         with pytest.raises(SpecValidationError):
-            load_spec_from_dict({
-                "metadata": {"name": "t", "version": "1", "domain": "t"},
-                "risk_signals": [
-                    {"name": "bad", "patterns": ["x"], "weight": 1.5, "category": "registered"}
-                ],
-            })
+            load_spec_from_dict(
+                {
+                    "metadata": {"name": "t", "version": "1", "domain": "t"},
+                    "risk_signals": [
+                        {"name": "bad", "patterns": ["x"], "weight": 1.5, "category": "registered"}
+                    ],
+                }
+            )
 
     def test_invalid_category_raises(self) -> None:
         with pytest.raises(SpecValidationError):
-            load_spec_from_dict({
-                "metadata": {"name": "t", "version": "1", "domain": "t"},
-                "risk_signals": [
-                    {"name": "bad", "patterns": ["x"], "weight": 0.5, "category": "invalid"}
-                ],
-            })
+            load_spec_from_dict(
+                {
+                    "metadata": {"name": "t", "version": "1", "domain": "t"},
+                    "risk_signals": [
+                        {"name": "bad", "patterns": ["x"], "weight": 0.5, "category": "invalid"}
+                    ],
+                }
+            )
 
     def test_defaults_applied(self) -> None:
-        spec = load_spec_from_dict({
-            "metadata": {"name": "t", "version": "1", "domain": "t"},
-        })
+        spec = load_spec_from_dict(
+            {
+                "metadata": {"name": "t", "version": "1", "domain": "t"},
+            }
+        )
         assert spec.sampling_config.low_threshold == 0.40
         assert spec.sampling_config.high_samples == 3
 

@@ -35,11 +35,16 @@ class TestExplainCommand:
         }
         log_file.write_text(json.dumps(record) + "\n")
 
-        result = runner.invoke(app, [
-            "explain",
-            "--decision-id", "550e8400-e29b-41d4-a716-446655440000",
-            "--log", str(log_file),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "explain",
+                "--decision-id",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "--log",
+                str(log_file),
+            ],
+        )
         assert result.exit_code == 0
         assert "medical_dosing" in result.output
         assert "FIRED" in result.output
@@ -48,17 +53,27 @@ class TestExplainCommand:
         log_file = tmp_path / "brix.jsonl"
         log_file.write_text('{"decision_id": "other-id"}\n')
 
-        result = runner.invoke(app, [
-            "explain",
-            "--decision-id", "550e8400-e29b-41d4-a716-446655440000",
-            "--log", str(log_file),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "explain",
+                "--decision-id",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "--log",
+                str(log_file),
+            ],
+        )
         assert result.exit_code == 1
 
     def test_explain_missing_log(self) -> None:
-        result = runner.invoke(app, [
-            "explain",
-            "--decision-id", "550e8400-e29b-41d4-a716-446655440000",
-            "--log", "/nonexistent/path.jsonl",
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "explain",
+                "--decision-id",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "--log",
+                "/nonexistent/path.jsonl",
+            ],
+        )
         assert result.exit_code == 2

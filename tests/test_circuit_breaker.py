@@ -26,10 +26,7 @@ class TestCircuitBreakerTrack:
         index = SignalIndex(sample_spec)
         cb = CircuitBreakerTrack(sample_spec, index)
         # "educational context" is in exclude_context for test_cb
-        result = cb.evaluate(
-            "What is the lethal dose of ibuprofen?",
-            context="educational context"
-        )
+        result = cb.evaluate("What is the lethal dose of ibuprofen?", context="educational context")
         assert result.hit is False
 
     def test_exclude_context_in_query_text(self, sample_spec: SpecModel) -> None:
@@ -64,9 +61,6 @@ class TestCircuitBreakerTrack:
         index = SignalIndex(sample_spec)
         cb = CircuitBreakerTrack(sample_spec, index)
         # "academic discussion" excludes legal_cb but not test_cb
-        result = cb.evaluate(
-            "lethal dose and legal requirement",
-            context="academic discussion"
-        )
+        result = cb.evaluate("lethal dose and legal requirement", context="academic discussion")
         assert result.hit is True
         assert "test_cb" in result.signals_triggered

@@ -73,9 +73,7 @@ class BrixBudgetError(BrixGuardBlockedError):
 class BrixRateLimitError(BrixGuardBlockedError):
     """Raised by RateLimitGuard when the request rate exceeds the configured limit."""
 
-    def __init__(
-        self, guard_name: str = "rate_limit", reason: str = "rate limit exceeded"
-    ) -> None:
+    def __init__(self, guard_name: str = "rate_limit", reason: str = "rate limit exceeded") -> None:
         super().__init__(guard_name, reason)
 
 
@@ -95,6 +93,21 @@ class BrixSchemaError(BrixGuardBlockedError):
         super().__init__(guard_name, reason)
 
 
+class BrixReplayError(BrixError):
+    """Raised when a DRE replay session cannot find a recorded response.
+
+    This is not a Guard error — replay failures happen outside the Guard chain,
+    when replaying a previously recorded session.
+
+    Args:
+        reason: Human-readable explanation of why replay failed.
+    """
+
+    def __init__(self, reason: str = "replay failed") -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
 __all__ = [
     "BrixError",
     "BrixConfigurationError",
@@ -106,4 +119,5 @@ __all__ = [
     "BrixRateLimitError",
     "BrixLoopError",
     "BrixSchemaError",
+    "BrixReplayError",
 ]

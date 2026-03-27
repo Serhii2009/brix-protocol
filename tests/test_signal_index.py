@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from brix.regulated.engine.signal_index import SignalIndex, SignalMatch
+from brix.regulated.engine.signal_index import SignalIndex
 from brix.regulated.spec.models import SpecModel
 
 

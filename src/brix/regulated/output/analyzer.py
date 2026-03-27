@@ -6,7 +6,6 @@ from brix.regulated.engine.signal_index import SignalIndex, _normalize
 from brix.regulated.output.result import OutputResult
 from brix.regulated.spec.models import (
     Metadata,
-    OutputSignalDef,
     RiskSignalDef,
     SpecModel,
 )
@@ -48,9 +47,7 @@ class OutputAnalyzer:
             self._weight_map[sig.name] = sig.weight
             self._category_map[sig.name] = sig.category
             self._signal_type_map[sig.name] = sig.signal_type
-            self._exclude_map[sig.name] = [
-                _normalize(p).lower() for p in sig.exclude_context
-            ]
+            self._exclude_map[sig.name] = [_normalize(p).lower() for p in sig.exclude_context]
 
         synthetic_spec = SpecModel(
             metadata=Metadata(

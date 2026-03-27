@@ -47,18 +47,20 @@ def print_result(scenario: str, result) -> None:
 
 
 async def main() -> None:
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("  BRIX Quickstart — Runtime Reliability Infrastructure for LLM Pipelines")
-    print("="*70)
+    print("=" * 70)
 
     # ─────────────────────────────────────────────────────────────────────
     # Scenario 1: Circuit Breaker fires on medical dosing query
     # ─────────────────────────────────────────────────────────────────────
-    mock_medical = MockLLMClient(responses=[
-        "I cannot provide specific dosage information. Please consult a medical professional.",
-        "As an AI, I'm not qualified to advise on drug dosages. Seek professional medical advice.",
-        "I must decline to answer questions about lethal doses. Please consult a healthcare provider.",
-    ])
+    mock_medical = MockLLMClient(
+        responses=[
+            "I cannot provide specific dosage information. Please consult a medical professional.",
+            "As an AI, I'm not qualified to advise on drug dosages. Seek professional medical advice.",
+            "I must decline to answer questions about lethal doses. Please consult a healthcare provider.",
+        ]
+    )
     router1 = BrixRouter(llm_client=mock_medical, _analyzer=QuickstartAnalyzer())
     result1 = await router1.process("What is the lethal dose of acetaminophen for an adult?")
     print_result("1 — Circuit Breaker: Medical Dosing Query", result1)
@@ -66,10 +68,12 @@ async def main() -> None:
     # ─────────────────────────────────────────────────────────────────────
     # Scenario 2: Epistemic uncertainty — retrieval needed
     # ─────────────────────────────────────────────────────────────────────
-    mock_epistemic = MockLLMClient(responses=[
-        "I'm not certain about the exact current tax deduction limits. Tax laws change frequently.",
-        "I cannot confirm the precise deduction amounts as they may have been updated recently.",
-    ])
+    mock_epistemic = MockLLMClient(
+        responses=[
+            "I'm not certain about the exact current tax deduction limits. Tax laws change frequently.",
+            "I cannot confirm the precise deduction amounts as they may have been updated recently.",
+        ]
+    )
     # Use an analyzer that produces high consistency with refusals (→ EPISTEMIC)
     router2 = BrixRouter(
         llm_client=mock_epistemic,
@@ -94,12 +98,18 @@ async def main() -> None:
     print_result("3 — Safe Passthrough: General Knowledge Query", result3)
 
     # Summary
-    print("="*70)
+    print("=" * 70)
     print("  QUICKSTART COMPLETE")
-    print(f"  Scenario 1: Circuit breaker {'FIRED' if result1.circuit_breaker_hit else 'did not fire'}")
-    print(f"  Scenario 2: Uncertainty type = {result2.uncertainty_type}, action = {result2.action_taken}")
-    print(f"  Scenario 3: Passed through = {not result3.intervention_necessary}, action = {result3.action_taken}")
-    print("="*70 + "\n")
+    print(
+        f"  Scenario 1: Circuit breaker {'FIRED' if result1.circuit_breaker_hit else 'did not fire'}"
+    )
+    print(
+        f"  Scenario 2: Uncertainty type = {result2.uncertainty_type}, action = {result2.action_taken}"
+    )
+    print(
+        f"  Scenario 3: Passed through = {not result3.intervention_necessary}, action = {result3.action_taken}"
+    )
+    print("=" * 70 + "\n")
 
 
 if __name__ == "__main__":

@@ -15,8 +15,12 @@ app = typer.Typer(
 
 app.command(name="lint", help="Validate and analyze an uncertainty.yaml specification")(lint_cmd)
 app.command(name="test", help="Run a test suite against a specification")(test_cmd)
-app.command(name="explain", help="Reconstruct a decision trace from structured result logs")(explain_cmd)
-app.command(name="generate-tests", help="Generate a draft test suite from a specification")(generate_tests_cmd)
+app.command(name="explain", help="Reconstruct a decision trace from structured result logs")(
+    explain_cmd
+)
+app.command(name="generate-tests", help="Generate a draft test suite from a specification")(
+    generate_tests_cmd
+)
 
 
 if __name__ == "__main__":

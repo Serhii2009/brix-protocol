@@ -47,26 +47,30 @@ def test_wrap_returns_brix_client() -> None:
     assert isinstance(client, BrixClient)
 
 
-def test_wrap_with_no_guards_creates_empty_chain() -> None:
+def test_wrap_with_no_guards_only_has_observability() -> None:
+    from brix.guards.observability import ObservabilityGuard
+
     llm = SimpleMockLLM()
     client = BRIX.wrap(llm)
-    assert client.chain.guards == []
+    # ObservabilityGuard is always registered (buffer-only when log_path=None)
+    assert len(client.chain.guards) == 1
+    assert isinstance(client.chain.guards[0], ObservabilityGuard)
 
 
-def test_wrap_warns_for_unimplemented_max_cost_usd() -> None:
+def test_wrap_max_cost_usd_activates_budget_guard() -> None:
+    from brix.guards.budget import BudgetGuard
+
     llm = SimpleMockLLM()
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        BRIX.wrap(llm, max_cost_usd=10.0)
-    assert any("max_cost_usd" in str(warning.message) for warning in w)
+    client = BRIX.wrap(llm, max_cost_usd=10.0)
+    assert any(isinstance(g, BudgetGuard) for g in client.chain.guards)
 
 
-def test_wrap_warns_for_unimplemented_max_time_seconds() -> None:
+def test_wrap_max_time_seconds_activates_timeout_guard() -> None:
+    from brix.guards.timeout import TimeoutGuard
+
     llm = SimpleMockLLM()
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        BRIX.wrap(llm, max_time_seconds=30.0)
-    assert any("max_time_seconds" in str(warning.message) for warning in w)
+    client = BRIX.wrap(llm, max_time_seconds=30.0)
+    assert any(isinstance(g, TimeoutGuard) for g in client.chain.guards)
 
 
 def test_wrap_does_not_warn_when_params_are_default() -> None:
@@ -173,9 +177,7 @@ async def test_guard_receives_context() -> None:
     class ContextCapturingGuard:
         name = "ctx_capture"
 
-        async def pre_call(
-            self, request: CallRequest, context: ExecutionContext
-        ) -> CallRequest:
+        async def pre_call(self, request: CallRequest, context: ExecutionContext) -> CallRequest:
             received_contexts.append(context)
             return request
 

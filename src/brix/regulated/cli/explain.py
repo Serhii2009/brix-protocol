@@ -14,7 +14,9 @@ console = Console()
 
 
 def explain_cmd(
-    decision_id: str = typer.Option(..., "--decision-id", "-d", help="UUID of the decision to explain"),
+    decision_id: str = typer.Option(
+        ..., "--decision-id", "-d", help="UUID of the decision to explain"
+    ),
     log: str = typer.Option(..., "--log", "-l", help="Path to the JSONL log file"),
 ) -> None:
     """Reconstruct a complete decision trace for audit and debugging."""
@@ -55,11 +57,13 @@ def _find_decision(log_path: Path, decision_id: str) -> dict | None:
 def _display_trace(record: dict) -> None:
     """Display the full decision trace from a structured result record."""
     # Header
-    console.print(Panel(
-        f"Decision ID: {record.get('decision_id', 'N/A')}",
-        title="Decision Trace",
-        style="bold blue",
-    ))
+    console.print(
+        Panel(
+            f"Decision ID: {record.get('decision_id', 'N/A')}",
+            title="Decision Trace",
+            style="bold blue",
+        )
+    )
 
     # Signal evaluation
     signals_table = Table(title="Signal Evaluation")
@@ -80,7 +84,7 @@ def _display_trace(record: dict) -> None:
     if cb_hit:
         console.print(f"\n[red bold]Circuit Breaker FIRED[/red bold]: {cb_name}")
     else:
-        console.print(f"\n[green]Circuit Breaker: Not triggered[/green]")
+        console.print("\n[green]Circuit Breaker: Not triggered[/green]")
 
     # Risk score breakdown
     risk_table = Table(title="Risk Assessment")
@@ -136,7 +140,7 @@ def _display_trace(record: dict) -> None:
         blocked = output_result.get("output_blocked", False)
         out_table.add_row(
             "Output Blocked",
-            f"[red]True[/red]" if blocked else "[green]False[/green]",
+            "[red]True[/red]" if blocked else "[green]False[/green]",
         )
         out_table.add_row(
             "Output Risk Score",

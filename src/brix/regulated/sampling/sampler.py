@@ -7,7 +7,7 @@ sequentially. The number of samples is determined by the risk tier.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from brix.regulated.core.exceptions import SamplerError
 from brix.regulated.llm.protocol import LLMClient

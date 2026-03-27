@@ -63,9 +63,7 @@ class ExecutionContext:
     session_id: str
     call_count: int = 0
     session_cost_usd: float = 0.0
-    session_start: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    session_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     call_history: list[CallRecord] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 

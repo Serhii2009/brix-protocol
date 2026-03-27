@@ -51,7 +51,10 @@ def print_result(
         from rich.panel import Panel
 
         console = Console(
-            stderr=True, highlight=False, force_terminal=True, width=60,
+            stderr=True,
+            highlight=False,
+            force_terminal=True,
+            width=60,
         )
         verbose = _is_verbose()
 

@@ -19,7 +19,7 @@ from brix.regulated.console.output import print_result
 from brix.regulated.analysis.classifier import UncertaintyClassifier
 from brix.regulated.analysis.consistency import SemanticConsistencyAnalyzer
 from brix.regulated.balance.tracker import BalanceTracker
-from brix.regulated.core.result import ActionTaken, StructuredResult, UncertaintyType
+from brix.regulated.core.result import StructuredResult, UncertaintyType
 from brix.regulated.engine.evaluator import TwoTrackEvaluator
 from brix.regulated.engine.signal_index import SignalIndex
 from brix.regulated.llm.protocol import LLMClient
@@ -98,9 +98,7 @@ class BrixRouter:
         # Output guard
         self._output_guard: OutputGuard | None = None
         if enable_output_guard:
-            self._output_guard = OutputGuard(
-                self._spec, _analyzer=self._analyzer
-            )
+            self._output_guard = OutputGuard(self._spec, _analyzer=self._analyzer)
 
         # Resolve model compatibility status
         self._registry_version = f"{self._spec.metadata.name}/{self._spec.metadata.version}"
@@ -127,9 +125,7 @@ class BrixRouter:
             ValueError: If retrieval_score is not None and outside [0.0, 1.0].
         """
         if retrieval_score is not None and not (0.0 <= retrieval_score <= 1.0):
-            raise ValueError(
-                f"retrieval_score must be between 0.0 and 1.0, got {retrieval_score}"
-            )
+            raise ValueError(f"retrieval_score must be between 0.0 and 1.0, got {retrieval_score}")
 
         t0 = time.perf_counter()
         decision_id = uuid4()

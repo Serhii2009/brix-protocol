@@ -46,12 +46,14 @@ class CallResponse:
     Guards receive this in post_call and may return a modified version.
 
     Args:
-        content: The text content of the response.
+        content: The response content. Normally a ``str`` from the LLM, but
+            SchemaGuard replaces this with a validated Pydantic model instance
+            when ``response_schema`` is active.
         usage: Token usage dict if available (prompt_tokens, completion_tokens, etc.).
         raw: The raw response object from the LLM provider, if available.
     """
 
-    content: str
+    content: Any
     usage: dict[str, Any] | None = None
     raw: Any = None
 

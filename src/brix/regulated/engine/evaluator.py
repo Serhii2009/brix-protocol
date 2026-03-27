@@ -65,9 +65,7 @@ class TwoTrackEvaluator:
             )
 
         # Track 2: Risk Score (only if CB did not fire)
-        risk_result: RiskScoreResult = self._risk_track.evaluate(
-            query, context, retrieval_score
-        )
+        risk_result: RiskScoreResult = self._risk_track.evaluate(query, context, retrieval_score)
 
         return EvaluationResult(
             circuit_breaker_hit=False,

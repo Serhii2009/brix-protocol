@@ -1,10 +1,8 @@
 <div align="center">
 
-# BRIX — Balance-Reliability IndeX
+# BRIX — Runtime Reliability Infrastructure for LLM Pipelines
 
-**Runtime Reliability Infrastructure for LLM Pipelines**
-
-_Enforce deterministic rules. Measure the Balance Index. Audit every decision._
+_One wrap() call. Seven guards. Zero hidden coupling._
 
 [![PyPI version](https://img.shields.io/pypi/v/brix-protocol?cachebust=0)](https://pypi.org/project/brix-protocol/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -15,421 +13,346 @@ _Enforce deterministic rules. Measure the Balance Index. Audit every decision._
 
 ---
 
-BRIX wraps any LLM client and enforces deterministic reliability rules defined in a declarative `uncertainty.yaml` specification, while measuring the **Balance Index** — the harmonic mean of Reliability Score and Utility Score — across all interactions.
-
----
-
-## The Core Insight
-
-LLMs cannot reliably enforce rules about their own behavior. System prompts are suggestions, not contracts. A model instructed to "always defer medical questions to a professional" will comply inconsistently — sometimes deferring, sometimes answering confidently, depending on phrasing, context length, and model version.
-
-**Infrastructure can enforce rules that models cannot.** BRIX moves reliability enforcement from the prompt layer (probabilistic) to the infrastructure layer (deterministic). Circuit breakers fire on pattern matches, not on model judgment. Risk scores are computed by formula, not by instruction-following. The result is reliability you can audit, version, and prove.
+BRIX wraps any LLM client with a configurable chain of guards, each solving exactly one production failure mode. System prompts are suggestions; BRIX guards are contracts. Activate what you need via `BRIX.wrap()` parameters — everything else stays out of the way.
 
 ---
 
 ## Installation
 
-### pip
-
 ```bash
-pip install brix-protocol
-```
-
-With regulated-domain support (sentence-transformers, ~500 MB):
-
-```bash
-pip install "brix-protocol[regulated]"
-```
-
-With LLM provider support:
-
-```bash
-pip install "brix-protocol[openai]"      # OpenAI adapter
-pip install "brix-protocol[anthropic]"   # Anthropic adapter
-pip install "brix-protocol[all]"         # regulated + all adapters
-```
-
-### Poetry
-
-```bash
-poetry add brix-protocol
-
-# With regulated extras
-poetry add "brix-protocol[regulated]"
-
-# With all extras
-poetry add "brix-protocol[all]"
+pip install brix-protocol                   # core guards only
+pip install "brix-protocol[regulated]"      # + regulated-domain analysis (~500 MB)
+pip install "brix-protocol[openai]"         # + OpenAI adapter
+pip install "brix-protocol[anthropic]"      # + Anthropic adapter
+pip install "brix-protocol[all]"            # everything
 ```
 
 ---
 
-## Quickstart
+## Quick Start
 
 ```python
 import asyncio
 import openai
+from pydantic import BaseModel
 from brix import BRIX
 
-async def main():
-    client = BRIX.wrap(openai.OpenAI())
-    response = await client.complete([
-        {"role": "user", "content": "What is the recommended daily dose of vitamin C?"}
-    ])
-    print(response)
 
-asyncio.run(main())
-```
+class Answer(BaseModel):
+    response: str
+    confidence: float
 
-Run the full quickstart with three scenarios:
-
-```bash
-python examples/quickstart.py
-```
-
-### Regulated domains
-
-For fintech, medtech, legal, and other regulated industries, activate `RegulatedGuard`
-via `regulated_spec`. Requires `pip install "brix-protocol[regulated]"`.
-
-```python
-import asyncio
-from brix import BRIX
-from brix.regulated import MockLLMClient
-from brix.regulated.spec.defaults import get_medical_spec_path
 
 async def main():
     client = BRIX.wrap(
-        MockLLMClient(),
-        regulated_spec=get_medical_spec_path(),   # activates RegulatedGuard
+        openai.AsyncOpenAI(),
+        max_cost_usd=1.0,           # BudgetGuard: hard cost cap
+        requests_per_minute=60,     # RateLimitGuard: adaptive throttle
+        per_call_timeout=10.0,      # TimeoutGuard: 10 s per call
+        max_retries=3,              # RetryGuard: 429/5xx → backoff
+        response_schema=Answer,     # SchemaGuard: guaranteed structured output
+        log_path="./traces",        # ObservabilityGuard: audit log + replay
     )
-    response = await client.complete([
-        {"role": "user", "content": "What is the lethal dose of acetaminophen?"}
-    ])
-    # context.metadata["regulated_result"] holds the full StructuredResult
-    result = client.context.metadata["regulated_result"]
-    print(result.circuit_breaker_hit)   # True
-    print(result.action_taken)          # force_retrieval
-    print(result.balance_index)         # Running session metric
+
+    result = await client.complete(
+        [{"role": "user", "content": "What is the capital of France?"}],
+        model="gpt-4o-mini",
+    )
+    print(result.response)    # "Paris"
+    print(result.confidence)  # 0.99
+
+    traces = client.get_traces()
+    print(traces[0]["latency_ms"], traces[0]["chain_hash"])
+
 
 asyncio.run(main())
 ```
 
-Or use `BrixRouter` directly for full access to `StructuredResult` on every call:
+---
+
+## The Guard System
+
+| Guard | Activated by | Guarantee |
+|-------|-------------|-----------|
+| **BudgetGuard** | `max_cost_usd` | No tokens spent after budget exhausted |
+| **RateLimitGuard** | `requests_per_minute` | Average throughput ≤ configured rate |
+| **TimeoutGuard** | `per_call/per_step/total_timeout` | `asyncio.wait_for` absolute — no call outlives limit |
+| **ObservabilityGuard** | _always active_ | Every call in buffer; SHA-256 chained audit log |
+| **SchemaGuard** | `response_schema` | Return value is valid Pydantic instance or raises |
+| **RetryGuard** | `max_retries` | Transient errors retried with jittered exponential backoff |
+| **RegulatedGuard** | `regulated_spec` | Circuit breakers + risk scoring for regulated domains |
+
+**Execution order:** `Budget → RateLimit → Timeout → Observability → Schema → Retry → Regulated`
+
+---
+
+## Guard Reference
+
+### BudgetGuard
+
+Estimates prompt cost with tiktoken _before_ each call. Blocks (or warns) if the estimated total would exceed the session budget. Updates the actual cost from response usage tokens in `post_call`.
+
+- `max_cost_usd` — session cost cap in USD
+- `budget_strategy="block"` — `"block"` raises; `"warn"` emits a UserWarning and continues
+- `budget_warning_threshold=0.8` — warn when 80% of budget is consumed
+
+**Guarantee:** A blocked call consumes zero LLM tokens.
+
+Raises: `BrixBudgetError`
+
+---
+
+### RateLimitGuard
+
+Adaptive token bucket that throttles calls to stay under `requests_per_minute`. Detects 429 responses (via RetryGuard's `retry_history`) and halves the effective rate; recovers multiplicatively once no 429 occurs for `recovery_window_seconds`.
+
+- `requests_per_minute` — target average rate cap
+- `adaptive_rate_limiting=True` — auto-adjust on 429
+- `burst_capacity=None` — optional hard cap on token bucket size (limits short bursts independently of average rate)
+- `rate_reduction_factor=0.5` — multiply effective rate by this on each 429
+- `rate_recovery_factor=1.05` — multiply effective rate by this on recovery (raise to 1.5 for faster recovery)
+- `recovery_window_seconds=60.0` — seconds without a 429 before recovery fires
+
+**Guarantee:** Average throughput cannot exceed configured rate. Provider burst-window limits (e.g. max N requests in 10 s) may still fire when `burst_capacity` is unset.
+
+Raises: nothing — sleeps non-blockingly until a token is available.
+
+---
+
+### TimeoutGuard
+
+Enforces three independent timeout levels at different abstraction layers.
+
+- `per_call_timeout` — max wall-clock seconds for a single LLM call (via `asyncio.wait_for`)
+- `per_step_timeout` — max seconds between the start of consecutive calls
+- `total_timeout` — max seconds for the entire session (measured from `context.session_start`)
+- `on_timeout="raise"` — `"raise"` raises `BrixTimeoutError`; `"return_partial"` returns an empty response and continues
+
+**Guarantee:** `asyncio.wait_for` is absolute — no single call can outlive `per_call_timeout`.
+
+Raises: `BrixTimeoutError`
+
+---
+
+### ObservabilityGuard _(always active)_
+
+Records every call to an in-memory circular buffer. When `log_path` is set, also writes a JSONL audit log (`brix_audit.jsonl`) and per-session DRE files (`.brix_sessions/{session_id}.jsonl`) for deterministic replay.
+
+- `log_path=None` — buffer-only mode; set to a directory to enable disk writes
+- `trace_buffer_size=1000` — max in-memory trace entries (oldest evicted)
+- `strict_mode=False` — when `True`, disk write failures raise instead of logging at WARNING
+- `max_session_records=None` — rotate the DRE session file after this many records
+
+**Guarantee:** Every completed call is added to the in-memory buffer. Disk writes are best-effort (`strict_mode=False`) or fail-fast (`strict_mode=True`). Replay requires successful disk writes.
+
+Raises: `BrixGuardError` (only when `strict_mode=True`)
 
 ```python
-import asyncio
+traces = client.get_traces()   # list[dict], most-recent first
+traces[0]["latency_ms"]
+traces[0]["chain_hash"]        # SHA-256 of previous entry
+traces[0]["prompt_hash"]       # SHA-256(json.dumps(messages))
+```
+
+---
+
+### SchemaGuard
+
+Injects the Pydantic model's JSON schema into the system prompt before the call (idempotent). After the call, extracts JSON from the response (handles markdown code fences), validates it, and returns a typed model instance. On failure, re-prompts with field-specific error messages up to `max_schema_retries` times.
+
+- `response_schema` — Pydantic model class
+- `max_schema_retries=2` — max self-healing re-prompt attempts (total attempts = retries + 1)
+- `inject_schema_in_prompt=True` — inject JSON schema into system prompt in `pre_call`
+- `max_healing_seconds=None` — optional wall-clock budget for the entire healing loop
+
+**Guarantee:** If `complete()` returns without raising, the return value is a valid instance of `response_schema`. A partially validated or unvalidated object cannot be returned.
+
+Raises: `BrixSchemaError` (with full attempt history)
+
+---
+
+### RetryGuard
+
+Short-circuit guard — calls the LLM itself and retries on transient failures. The chain's own LLM call is skipped. Stores the full retry history in `context.metadata["retry_history"]` for RateLimitGuard's adaptive logic.
+
+- `max_retries` — max retry attempts (total attempts = max_retries + 1)
+- `backoff_base=2.0` — exponential backoff base
+- `max_backoff=60.0` — max delay between retries in seconds
+- `retry_budget_seconds=120.0` — total time budget for all retry delays
+- `retry_on=None` — additional HTTP status codes to treat as retryable
+
+**Guarantee:** Fatal errors (auth, invalid request body, etc.) are never retried. Retry history is always available in `context.metadata["retry_history"]` after the call.
+
+Raises: `BrixGuardError` (retry budget exhausted)
+
+---
+
+### RegulatedGuard
+
+Short-circuit guard — runs BrixRouter's two-track evaluation (deterministic circuit breakers + semantic risk scoring) on every call. The full result is stored in `context.metadata["regulated_result"]`.
+
+- `regulated_spec` — path to a YAML spec file, or a built-in name: `"medical"`, `"legal"`, `"finance"`, `"hr"`, `"general"`
+
+Requires: `pip install "brix-protocol[regulated]"`
+
+**Guarantee:** Circuit breakers fire deterministically on pattern matches, not on model judgment. A `BrixGuardBlockedError` is raised when mandatory intervention is required.
+
+Raises: `BrixGuardBlockedError`
+
+```python
+result = client.context.metadata["regulated_result"]
+print(result.circuit_breaker_hit)   # bool
+print(result.action_taken)          # ActionTaken enum
+print(result.balance_index)         # harmonic mean of reliability + utility
+print(result.uncertainty_type)      # UncertaintyType enum
+```
+
+---
+
+## Observability & Replay
+
+### Audit Log
+
+Each entry in `brix_audit.jsonl` contains:
+
+| Field | Description |
+|-------|-------------|
+| `run_id` | UUID4, unique per call |
+| `session_id` | Fixed per `BrixClient` instance |
+| `sequence` | Call counter within session |
+| `timestamp` | ISO 8601 UTC |
+| `model` | Model identifier |
+| `prompt_tokens` / `completion_tokens` | From response usage |
+| `cost_usd` | From BudgetGuard metadata |
+| `latency_ms` | Wall-clock time for the call |
+| `prompt_hash` | SHA-256 of serialized messages |
+| `response_hash` | SHA-256 of response content |
+| `guards_active` | Names of active guards |
+| `chain_hash` | SHA-256 of previous entry's canonical JSON |
+
+The `chain_hash` forms a cryptographic chain: the first entry's hash covers `{"genesis": session_id}`; each subsequent hash covers the complete previous entry. Any modification or deletion invalidates all subsequent hashes.
+
+### DRE — Deterministic Replay Engine
+
+Session files are written to `.brix_sessions/{session_id}.jsonl` alongside the audit log. They store response content in serializable form (`str` or Pydantic `model_dump()`) with enough metadata to reconstruct the original typed objects.
+
+```python
+import openai
+from pydantic import BaseModel
+from brix import BRIX
+
+
+class Answer(BaseModel):
+    response: str
+    confidence: float
+
+
+async def example():
+    # --- Recording ---
+    client = BRIX.wrap(
+        openai.AsyncOpenAI(),
+        log_path="./traces",
+        response_schema=Answer,
+    )
+    session_id = client.context.session_id
+    await client.complete([{"role": "user", "content": "Capital of France?"}])
+
+    # --- Replay (zero LLM cost, no network) ---
+    replay = BRIX.replay(
+        session_id=session_id,
+        log_path="./traces",
+        schema=Answer,           # reconstructs Pydantic instance
+    )
+    print(replay.total_calls)    # 1
+    result = await replay.complete()
+    assert isinstance(result, Answer)
+
+    # --- Housekeeping ---
+    deleted = BRIX.purge_sessions("./traces", older_than_days=7)
+    print(f"Purged {deleted} old session files")
+```
+
+`BrixReplayClient` properties: `session_id`, `total_calls`, `calls_remaining`.
+`acomplete` is an alias for `complete`.
+
+---
+
+## Regulated Domain
+
+For regulated industries (medical, legal, finance, HR), BRIX includes a two-track evaluation engine: deterministic **circuit breakers** (pattern matching, mandatory interventions) and probabilistic **risk scoring** (semantic consistency, uncertainty classification).
+
+### Via `BRIX.wrap()`
+
+```python
+from brix import BRIX
+import openai
+
+client = BRIX.wrap(
+    openai.AsyncOpenAI(),
+    regulated_spec="medical",   # activates RegulatedGuard
+)
+await client.complete([{"role": "user", "content": "What is the max safe aspirin dose?"}])
+
+result = client.context.metadata["regulated_result"]
+print(result.circuit_breaker_hit)
+print(result.action_taken)
+print(result.balance_index)
+```
+
+### Via `BrixRouter` (standalone)
+
+```python
 from brix.regulated import BrixRouter, MockLLMClient
 
-async def main():
-    router = BrixRouter(llm_client=MockLLMClient())
-    result = await router.process("What is the lethal dose of acetaminophen?")
-    print(result.circuit_breaker_hit)   # True
-    print(result.action_taken)          # force_retrieval
-    print(result.balance_index)         # Running session metric
-
-asyncio.run(main())
+router = BrixRouter(llm_client=MockLLMClient(), spec="medical")
+result = await router.process("What is the lethal dose of acetaminophen?")
+print(result.circuit_breaker_hit)   # True
+print(result.action_taken)          # force_retrieval
+print(result.balance_index)         # running session metric
 ```
 
----
-
-## The Balance Index
-
-The Balance Index is the single metric that tells you whether your LLM pipeline's reliability configuration is working.
-
-It is the **harmonic mean** of two scores:
-
-- **Reliability Score (R):** What fraction of genuinely risky queries did the system correctly intercept? `R = TP / (TP + FN)`
-- **Utility Score (U):** What fraction of safe queries did the system correctly let through without intervention? `U = TN / (TN + FP)`
-
-```
-Balance Index = 2 * R * U / (R + U)
-```
-
-The harmonic mean punishes imbalance. A system that blocks everything gets R=1.0 but U=0.0, yielding a Balance Index of 0.0. A system that blocks nothing gets U=1.0 but R=0.0, also yielding 0.0. Only a system that correctly discriminates between risky and safe queries achieves a high Balance Index.
-
-| Balance Index | Interpretation                                        |
-| ------------- | ----------------------------------------------------- |
-| > 0.85        | Well-calibrated specification                         |
-| 0.70 – 0.85   | Acceptable, room for improvement                      |
-| < 0.70        | Significant miscalibration — review before production |
-
----
-
-## How It Works
-
-### The Two-Track System
-
-Every query passes through two independent evaluation tracks:
-
-**Circuit Breaker Track** — Binary, deterministic. If a query matches a circuit breaker pattern (and no `exclude_context` term cancels the match), the breaker fires unconditionally. No gradation. No weighting. Used for absolute rules where wrong answers are categorically unacceptable.
-
-**Risk Score Track** — Graduated, weighted. Computes an aggregate risk score from matched signals:
-
-```
-risk_score = max(registered_signals) * 1.0
-           + sum(universal_signals) * 0.6
-           + max(0, 0.85 - retrieval_score) * 0.8
-```
-
-The risk score maps to a sampling tier:
-
-| Tier            | Score  | Samples             |
-| --------------- | ------ | ------------------- |
-| LOW             | ≤ 0.40 | 1                   |
-| MEDIUM          | ≤ 0.70 | 2                   |
-| HIGH            | > 0.70 | 3                   |
-| CIRCUIT BREAKER | —      | 3 + force_retrieval |
-
-### Adaptive Sampling
-
-Multiple samples are collected **in parallel** via `asyncio.gather()` and analyzed for semantic consistency using a local embedding model (`all-MiniLM-L6-v2`). The consistency pattern determines the uncertainty type:
-
-| Pattern                                  | Classification | Action                |
-| ---------------------------------------- | -------------- | --------------------- |
-| High consistency, no refusals            | CERTAIN        | Passthrough           |
-| High consistency, refusals in ≥2 samples | EPISTEMIC      | Force retrieval       |
-| Very low consistency (< 0.45)            | CONTRADICTORY  | Conflict resolution   |
-| Moderate consistency, high variance      | OPEN_ENDED     | Distribution response |
-
-### StructuredResult
-
-Every call returns a complete `StructuredResult` containing: uncertainty type, action taken, response, circuit breaker status, triggered signals, risk score, Balance Index, decision UUID, latency, token cost, model compatibility status, `response_requires_verification` (whether the response needs external verification), `unverified_draft` (raw LLM output for internal processing), `retrieval_executed`/`retrieval_sources` (RAG status), `sampler_partial_failure` (degraded sampling), and `output_result` (output guard analysis). Every decision is auditable via `brix explain`.
-
----
-
-## Configuration: `uncertainty.yaml`
-
-BRIX behavior is defined declaratively in YAML specifications:
-
-```yaml
-metadata:
-  name: my-domain
-  version: '1.0.0'
-  domain: healthcare
-  model_compatibility:
-    - model_family: gpt-4
-      status: verified
-
-circuit_breakers:
-  - name: drug_dosing
-    patterns:
-      - 'lethal dose'
-      - 'maximum dose'
-      - 'mg per kg'
-    exclude_context:
-      - 'pharmacology textbook'
-      - 'educational context'
-
-risk_signals:
-  - name: factual_claims
-    patterns:
-      - 'studies show'
-      - 'research proves'
-    weight: 0.7
-    category: registered
-  - name: specific_numbers
-    patterns:
-      - 'exactly'
-      - 'precisely'
-    weight: 0.5
-    category: universal
-
-uncertainty_types:
-  - name: epistemic
-    action_config:
-      action: force_retrieval
-      message_template: 'Retrieval needed for verified information.'
-  - name: contradictory
-    action_config:
-      action: conflict_resolution
-  - name: open_ended
-    action_config:
-      action: distribution_response
-
-sampling_config:
-  low_threshold: 0.40
-  medium_threshold: 0.70
-  temperature: 0.7
-  max_tokens: 1024
-```
-
-### Schema Reference
-
-| Section             | Required | Description                                                                |
-| ------------------- | -------- | -------------------------------------------------------------------------- |
-| `metadata`          | Yes      | Name, version, domain, model compatibility records                         |
-| `circuit_breakers`  | No       | Binary rules with patterns and optional exclude_context                    |
-| `risk_signals`      | No       | Weighted signals (registered or universal) with exclude_context            |
-| `uncertainty_types` | No       | Per-type action configuration                                              |
-| `sampling_config`   | No       | Tier thresholds, sampling parameters, and `max_tokens` (sensible defaults) |
-| `output_signals`    | No       | Response-side signals with `signal_type: risk\|block` for output guard     |
-
----
-
-## CLI Commands
-
-### `brix lint`
-
-Validate a specification, detect conflicts, and estimate Balance Index.
-
-```bash
-brix lint specs/general/v1.0.0.yaml
-```
-
-- Validates schema against Pydantic models
-- Detects conflicting signals (same pattern in CB and risk signal)
-- Detects unreachable rules (exclude_context eliminates all matches)
-- Estimates utility impact and Balance Index
-- Exit codes: 0 (clean), 1 (warnings), 2 (errors)
-
-### `brix test`
-
-Run a test suite and report Reliability Score, Utility Score, and Balance Index.
-
-```bash
-brix test specs/general/v1.0.0.yaml --suite tests/suite.yaml --model gpt-4
-```
-
-- Reports TP/FN/TN/FP confusion matrix
-- Lists all failing cases with expected vs actual outcomes
-- Outputs machine-readable JSON compatibility report
-
-### `brix explain`
-
-Reconstruct the complete decision trace for any logged request.
-
-```bash
-brix explain --decision-id 550e8400-e29b-41d4-a716-446655440000 --log brix.jsonl
-```
-
-- Shows every signal evaluated
-- Shows risk score components
-- Shows uncertainty classification reasoning
-- Shows action selection logic
-
-### `brix generate-tests`
-
-Generate a draft test suite from a specification.
-
-```bash
-brix generate-tests specs/general/v1.0.0.yaml --output generated_tests/
-```
-
-- Positive cases per circuit breaker
-- Negative cases per circuit breaker (using exclude_context)
-- Cases per risk signal
-- Cases per uncertainty type
-- Safe passthrough cases
-- All tests generated with `status: draft` for human review
-
----
-
-## Comparison
-
-| Feature               | BRIX                            | NeMo Guardrails      | Guardrails AI     | Cleanlab TLM                         |
-| --------------------- | ------------------------------- | -------------------- | ----------------- | ------------------------------------ |
-| **Approach**          | Declarative infrastructure      | Programmable rails   | Output validation | Trustworthiness scoring              |
-| **Balance Index**     | Built-in metric                 | No equivalent        | No equivalent     | Confidence score (different concept) |
-| **Circuit breakers**  | Deterministic, O(n)             | LLM-based            | No                | No                                   |
-| **Pattern matching**  | Aho-Corasick automaton          | LLM classification   | Regex/validators  | N/A                                  |
-| **Uncertainty types** | 3 types with distinct actions   | Not classified       | Not classified    | Not classified                       |
-| **Audit trail**       | StructuredResult + brix explain | Logging              | Logging           | API logs                             |
-| **Spec format**       | Declarative YAML                | Colang               | Python/RAIL       | API config                           |
-| **Model agnostic**    | Any LLM via Protocol            | NVIDIA focused       | Any LLM           | Any LLM                              |
-| **Local embedding**   | all-MiniLM-L6-v2 (no API cost)  | LLM-based (API cost) | N/A               | API-based                            |
-
----
-
-## Use Cases
-
-### Medical Information Systems
-
-Circuit breakers on drug interactions, dosing, contraindications. Retrieval always activated for clinical queries. Audit trail for regulatory compliance.
-
-### Legal Research Platforms
-
-Circuit breakers on jurisdictional requirements, statute of limitations. Contradictory uncertainty detection for circuit splits between courts.
-
-### Financial Services Compliance
-
-Circuit breakers on regulatory thresholds, reporting requirements. Balance Index monitoring ensures compliance officers can still get useful answers.
-
-### Enterprise Knowledge Management
-
-Lower-stakes circuit breakers on HR policies, legal obligations. High utility preservation for general knowledge queries.
-
----
-
-## Built-in Specifications
-
-BRIX ships with five ready-to-use domain specifications:
-
-| Spec             | Domain                | Circuit Breakers | Risk Signals | Balance Index |
-| ---------------- | --------------------- | ---------------- | ------------ | ------------- |
-| `general/v1.0.0` | General purpose       | 3                | 7            | 0.873         |
-| `medical/v1.0.0` | Medical / FDA-aligned | 6                | 8            | 0.884         |
-| `legal/v1.0.0`   | Legal research        | 5                | 7            | 0.895         |
-| `finance/v1.0.0` | Financial services    | 5                | 8            | 0.894         |
-| `hr/v1.0.0`      | Human resources       | 4                | 6            | 0.889         |
-
-Load any spec by path:
+### Built-in Specs
+
+| Name | Domain |
+|------|--------|
+| `"medical"` | FDA-aligned medical/clinical |
+| `"legal"` | Legal research and advice |
+| `"finance"` | Financial services |
+| `"hr"` | Human resources |
+| `"general"` | General-purpose (default) |
+
+Load custom specs:
 
 ```python
-from brix.regulated.spec.defaults import get_medical_spec_path
-from brix.regulated import BrixRouter, load_spec
+from brix.regulated import load_spec, load_spec_from_dict
 
-spec = load_spec(get_medical_spec_path())
-router = BrixRouter(llm_client=client, spec=spec)
+spec = load_spec("path/to/my_spec.yaml")
+spec = load_spec_from_dict({"name": "custom", ...})
 ```
 
----
-
-## LLM Client Adapters
+### RAG Integration
 
 ```python
-# OpenAI
-from brix.regulated.llm.openai_adapter import OpenAIClient
-client = OpenAIClient(model="gpt-4")
+from brix import RetrievalProvider, RetrievalResult
+from brix.regulated import BrixRouter
 
-# Anthropic
-from brix.regulated.llm.anthropic_adapter import AnthropicClient
-client = AnthropicClient(model="claude-sonnet-4-6-20250514")
+class MyRAG(RetrievalProvider):
+    async def retrieve(self, query: str, *, max_results: int = 3) -> RetrievalResult:
+        docs = await my_vector_db.search(query, limit=max_results)
+        return RetrievalResult(
+            content="\n".join(d.text for d in docs),
+            score=docs[0].score,
+            sources=[d.url for d in docs],
+        )
 
-# Mock (testing)
-from brix import MockLLMClient
-client = MockLLMClient(responses=["Response A", "Response B"])
-
-# Custom — implement the protocol
-class MyClient:
-    async def complete(self, prompt, *, system=None, temperature=0.7, max_tokens=1024):
-        return "my response"
+router = BrixRouter(
+    llm_client=my_llm,
+    spec="medical",
+    retrieval_provider=MyRAG(),
+)
 ```
 
----
-
-## Output Guard
-
-BRIX can scan LLM responses for risky content using the same Aho-Corasick infrastructure. Enable it on the router:
-
-```python
-router = BrixRouter(llm_client=client, spec=spec, enable_output_guard=True)
-result = await router.process("What treatment do you recommend?")
-
-if result.output_result and result.output_result.output_blocked:
-    print("Response blocked:", result.output_result.output_block_signal)
-```
-
-Define output signals in your spec with `signal_type: block` (hard block) or `signal_type: risk` (scored):
-
-```yaml
-output_signals:
-  - name: definitive_diagnosis
-    patterns: ['you have', 'you are diagnosed']
-    weight: 0.9
-    signal_type: block
-```
-
-For standalone use outside BrixRouter:
+### Standalone Output Guard
 
 ```python
 from brix import OutputGuard, load_spec
@@ -440,93 +363,100 @@ result = await guard.analyze(response_text, query=original_query)
 
 ---
 
-## Retrieval Provider
+## Exception Hierarchy
 
-When BRIX detects epistemic uncertainty, it can execute real RAG instead of just signaling `force_retrieval`. Implement the `RetrievalProvider` protocol:
+All exceptions inherit from `BrixError`.
 
-```python
-from brix import RetrievalProvider, RetrievalResult
-
-class MyRAG:
-    async def retrieve(self, query: str, *, max_results: int = 3) -> RetrievalResult:
-        docs = await my_vector_db.search(query, limit=max_results)
-        return RetrievalResult(
-            content="\n".join(d.text for d in docs),
-            score=docs[0].score,
-            sources=[d.url for d in docs],
-        )
-
-router = BrixRouter(llm_client=client, retrieval_provider=MyRAG())
-```
-
-When retrieval executes, `result.retrieval_executed` is `True` and `result.retrieval_sources` contains the source list. If retrieval fails, BRIX falls back gracefully with `result.retrieval_failed = True`.
+| Exception | Raised by | Condition |
+|-----------|-----------|-----------|
+| `BrixBudgetError` | BudgetGuard | Cost limit exceeded |
+| `BrixTimeoutError` | TimeoutGuard | Time limit exceeded |
+| `BrixSchemaError` | SchemaGuard | Validation failed after all retries |
+| `BrixGuardBlockedError` | RetryGuard, RegulatedGuard | Request blocked or all retries exhausted |
+| `BrixGuardError` | ObservabilityGuard (`strict_mode=True`) | Guard-internal failure |
+| `BrixReplayError` | `BrixReplayClient` | Missing session file or no recorded response |
+| `BrixConfigurationError` | `BrixClient` | Unsupported or misconfigured LLM client |
 
 ---
 
-## Console Output
+## `BRIX.wrap()` Parameter Reference
 
-BRIX provides optional one-line terminal feedback for each request. It activates automatically in TTY terminals and can be controlled via environment variables:
+### BudgetGuard
 
-```
-BRIX_CONSOLE=1    # Force on (even in pipes)
-BRIX_CONSOLE=0    # Force off (even in terminals)
-BRIX_VERBOSE=1    # Show signals, retrieval status, decision ID
-```
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_cost_usd` | `float \| None` | `None` | Session cost cap; activates guard |
+| `budget_strategy` | `str` | `"block"` | `"block"` raises; `"warn"` continues |
+| `budget_warning_threshold` | `float` | `0.8` | Warn at this fraction of the limit |
 
-Example output:
+### RateLimitGuard
 
-```
-  OK  Safe -- passed through         risk 0.04   balance 0.892   12ms
-  !   Elevated -- retrieval needed   risk 0.73   balance 0.871   87ms
-  X   Blocked -- drug_dosing         risk 1.00   balance 0.864   43ms
-```
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `requests_per_minute` | `int \| None` | `None` | Target rate cap; activates guard |
+| `adaptive_rate_limiting` | `bool` | `True` | Auto-reduce rate on 429 |
+| `min_rate_floor` | `float` | `0.1` | Effective rate never drops below `max × floor` |
+| `rate_reduction_factor` | `float` | `0.5` | Multiply rate by this on each 429 |
+| `rate_recovery_factor` | `float` | `1.05` | Multiply rate by this on recovery |
+| `recovery_window_seconds` | `float` | `60.0` | Seconds without 429 before recovery |
+| `burst_capacity` | `int \| None` | `None` | Hard cap on token bucket size |
+
+Legacy alias: `rate_limit_rpm` → `requests_per_minute`
+
+### TimeoutGuard
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `per_call_timeout` | `float \| None` | `None` | Max seconds for single LLM call |
+| `per_step_timeout` | `float \| None` | `None` | Max seconds between consecutive calls |
+| `total_timeout` | `float \| None` | `None` | Max seconds for entire session |
+| `on_timeout` | `str` | `"raise"` | `"raise"` or `"return_partial"` |
+
+Legacy alias: `max_time_seconds` → `per_call_timeout`
+
+### ObservabilityGuard _(always active)_
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `log_path` | `str \| Path \| None` | `None` | Audit log directory; `None` = buffer-only |
+| `trace_buffer_size` | `int` | `1000` | Max in-memory trace entries |
+| `strict_mode` | `bool` | `False` | Raise on disk write failure |
+| `max_session_records` | `int \| None` | `None` | Rotate DRE file after N records |
+
+### SchemaGuard
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `response_schema` | `type \| None` | `None` | Pydantic model class; activates guard |
+| `max_schema_retries` | `int` | `2` | Max self-healing re-prompt attempts |
+| `inject_schema_in_prompt` | `bool` | `True` | Inject JSON schema in system prompt |
+| `max_healing_seconds` | `float \| None` | `None` | Wall-clock budget for healing loop |
+
+### RetryGuard
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_retries` | `int \| None` | `None` | Max retry attempts; activates guard |
+| `backoff_base` | `float` | `2.0` | Exponential backoff base |
+| `max_backoff` | `float` | `60.0` | Max delay between retries (seconds) |
+| `retry_budget_seconds` | `float` | `120.0` | Total time budget for all retry delays |
+| `retry_on` | `list[int] \| None` | `None` | Extra HTTP status codes to retry |
+
+### RegulatedGuard
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `regulated_spec` | `str \| Path \| None` | `None` | Spec path or built-in name; activates guard |
 
 ---
 
-## System Prompt
+## CLI
 
-Pass a consistent system prompt to all LLM sampling calls:
-
-```python
-router = BrixRouter(
-    llm_client=client,
-    system_prompt="You are a medical information assistant. Always cite sources.",
-)
-```
-
----
-
-## Roadmap
-
-- **BRIX Cloud** — Enterprise dashboard, real-time Balance Index monitoring, compliance reporting for EU AI Act
-- **Community Registry** — Versioned, peer-reviewed specification repository organized by domain
-- **Certified Templates** — Domain-expert-reviewed specifications for regulated industries (medical, legal, financial)
-- **Agent Framework Integration** — Native support for LangChain, LlamaIndex, and CrewAI pipelines
-- **Streaming Support** — Real-time signal evaluation on streaming LLM responses
-
----
-
-## Contributing
-
-Contributions are welcome. To get started:
+The `brix` CLI provides tooling for regulated-domain spec management:
 
 ```bash
-git clone https://github.com/Serhii2009/brix-protocol.git
-cd brix-protocol
-pip install -e ".[regulated,dev]"
-pytest
+brix lint   spec.yaml    # validate spec syntax and circuit breaker rules
+brix test   spec.yaml    # run the spec's built-in test cases
+brix explain spec.yaml   # explain what each rule does in plain language
+brix generate spec.yaml  # generate test cases from spec rules
 ```
-
-Before submitting a PR:
-
-1. Run `brix lint` on any modified specs
-2. Ensure `pytest --cov=brix` reports ≥80% coverage
-3. Add tests for new functionality
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
-
----
-
-## License
-
-MIT License. Copyright (c) 2026 Serhii Kravchenko. See [LICENSE](LICENSE).

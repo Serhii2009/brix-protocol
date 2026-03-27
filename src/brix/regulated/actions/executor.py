@@ -95,9 +95,7 @@ class ActionExecutor:
         # Fallback: treat as epistemic
         return await self._handle_epistemic(samples, query)
 
-    async def _handle_epistemic(
-        self, samples: list[str], query: str
-    ) -> ActionResult:
+    async def _handle_epistemic(self, samples: list[str], query: str) -> ActionResult:
         """Handle epistemic uncertainty — signal retrieval augmentation needed."""
         config = self._type_configs.get("epistemic")
         template = config.action_config.message_template if config else ""
@@ -141,9 +139,7 @@ class ActionExecutor:
             unverified_draft=samples[0] if samples else None,
         )
 
-    async def _handle_contradictory(
-        self, samples: list[str], query: str
-    ) -> ActionResult:
+    async def _handle_contradictory(self, samples: list[str], query: str) -> ActionResult:
         """Handle contradictory uncertainty — explicit conflict resolution."""
         config = self._type_configs.get("contradictory")
         template = config.action_config.message_template if config else ""
@@ -170,9 +166,7 @@ class ActionExecutor:
             cost_tokens_extra=self._estimate_extra_tokens(samples),
         )
 
-    async def _handle_open_ended(
-        self, samples: list[str], query: str
-    ) -> ActionResult:
+    async def _handle_open_ended(self, samples: list[str], query: str) -> ActionResult:
         """Handle open-ended uncertainty — distribution of outcomes."""
         config = self._type_configs.get("open_ended")
         template = config.action_config.message_template if config else ""

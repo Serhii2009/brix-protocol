@@ -38,7 +38,12 @@ class TestLintCommand:
                 {"name": "cb1", "patterns": ["shared pattern"]},
             ],
             "risk_signals": [
-                {"name": "rs1", "patterns": ["shared pattern"], "weight": 0.5, "category": "registered"},
+                {
+                    "name": "rs1",
+                    "patterns": ["shared pattern"],
+                    "weight": 0.5,
+                    "category": "registered",
+                },
             ],
         }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:

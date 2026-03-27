@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import yaml
@@ -19,9 +18,15 @@ class TestGenerateTestsCommand:
         spec_file.write_text(yaml.dump(sample_spec_dict))
 
         output_dir = tmp_path / "output"
-        result = runner.invoke(app, [
-            "generate-tests", str(spec_file), "--output", str(output_dir),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "generate-tests",
+                str(spec_file),
+                "--output",
+                str(output_dir),
+            ],
+        )
         assert result.exit_code == 0
 
         # Check output file exists
@@ -42,7 +47,9 @@ class TestGenerateTestsCommand:
         runner.invoke(app, ["generate-tests", str(spec_file), "--output", str(output_dir)])
 
         suite = yaml.safe_load(list(output_dir.glob("*.yaml"))[0].read_text())
-        cb_positive = [c for c in suite["test_cases"] if c["category"] == "circuit_breaker_positive"]
+        cb_positive = [
+            c for c in suite["test_cases"] if c["category"] == "circuit_breaker_positive"
+        ]
         assert len(cb_positive) > 0
         for case in cb_positive:
             assert case["expected_intervention"] is True
@@ -55,7 +62,9 @@ class TestGenerateTestsCommand:
         runner.invoke(app, ["generate-tests", str(spec_file), "--output", str(output_dir)])
 
         suite = yaml.safe_load(list(output_dir.glob("*.yaml"))[0].read_text())
-        cb_negative = [c for c in suite["test_cases"] if c["category"] == "circuit_breaker_negative"]
+        cb_negative = [
+            c for c in suite["test_cases"] if c["category"] == "circuit_breaker_negative"
+        ]
         assert len(cb_negative) > 0
         for case in cb_negative:
             assert case["expected_intervention"] is False
@@ -73,14 +82,22 @@ class TestGenerateTestsCommand:
     def test_invalid_spec_fails(self, tmp_path) -> None:
         spec_file = tmp_path / "bad.yaml"
         spec_file.write_text("invalid: spec")
-        result = runner.invoke(app, ["generate-tests", str(spec_file), "--output", str(tmp_path / "out")])
+        result = runner.invoke(
+            app, ["generate-tests", str(spec_file), "--output", str(tmp_path / "out")]
+        )
         assert result.exit_code == 2
 
     def test_builtin_spec_generates(self, builtin_spec_path: Path, tmp_path) -> None:
         output_dir = tmp_path / "output"
-        result = runner.invoke(app, [
-            "generate-tests", str(builtin_spec_path), "--output", str(output_dir),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "generate-tests",
+                str(builtin_spec_path),
+                "--output",
+                str(output_dir),
+            ],
+        )
         assert result.exit_code == 0
         output_files = list(output_dir.glob("*.yaml"))
         assert len(output_files) == 1

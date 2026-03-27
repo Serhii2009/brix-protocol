@@ -82,7 +82,9 @@ class TestAdaptiveSampler:
         call_count = 0
 
         class CountingClient:
-            async def complete(self_inner, prompt, *, system=None, temperature=0.7, max_tokens=1024):
+            async def complete(
+                self_inner, prompt, *, system=None, temperature=0.7, max_tokens=1024
+            ):
                 nonlocal call_count
                 call_count += 1
                 return f"Response {call_count}"

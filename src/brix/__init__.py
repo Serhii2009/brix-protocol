@@ -31,6 +31,7 @@ from brix.exceptions import (
     BrixInternalError,
     BrixLoopError,
     BrixRateLimitError,
+    BrixReplayError,
     BrixSchemaError,
     BrixTimeoutError,
 )
@@ -78,6 +79,7 @@ __all__ = [
     "BrixInternalError",
     "BrixLoopError",
     "BrixRateLimitError",
+    "BrixReplayError",
     "BrixSchemaError",
     "BrixTimeoutError",
     # Regulated module re-exports (backward compat)

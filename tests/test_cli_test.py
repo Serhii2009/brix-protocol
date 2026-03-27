@@ -48,7 +48,5 @@ class TestTestCommand:
     def test_missing_suite_file(self, sample_spec_dict: dict, tmp_path) -> None:
         spec_file = tmp_path / "spec.yaml"
         spec_file.write_text(yaml.dump(sample_spec_dict))
-        result = runner.invoke(app, [
-            "test", str(spec_file), "--suite", "/nonexistent/suite.yaml"
-        ])
+        result = runner.invoke(app, ["test", str(spec_file), "--suite", "/nonexistent/suite.yaml"])
         assert result.exit_code == 2

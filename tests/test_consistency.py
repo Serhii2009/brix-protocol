@@ -24,17 +24,21 @@ class TestSemanticConsistencyAnalyzer:
         assert result.variance < 0.01
 
     def test_similar_strings_high_similarity(self, analyzer: SemanticConsistencyAnalyzer) -> None:
-        result = analyzer.analyze([
-            "The sky is blue due to Rayleigh scattering.",
-            "The sky appears blue because of the Rayleigh scattering effect.",
-        ])
+        result = analyzer.analyze(
+            [
+                "The sky is blue due to Rayleigh scattering.",
+                "The sky appears blue because of the Rayleigh scattering effect.",
+            ]
+        )
         assert result.mean_similarity > 0.80
 
     def test_unrelated_strings_low_similarity(self, analyzer: SemanticConsistencyAnalyzer) -> None:
-        result = analyzer.analyze([
-            "The quantum mechanical properties of black holes remain mysterious.",
-            "I enjoy cooking pasta with tomato sauce on weekends.",
-        ])
+        result = analyzer.analyze(
+            [
+                "The quantum mechanical properties of black holes remain mysterious.",
+                "I enjoy cooking pasta with tomato sauce on weekends.",
+            ]
+        )
         assert result.mean_similarity < 0.50
 
     def test_single_sample_returns_default(self, analyzer: SemanticConsistencyAnalyzer) -> None:
