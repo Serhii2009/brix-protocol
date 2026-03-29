@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for the adaptive sampler — tier mapping and parallel collection."""
 
 from __future__ import annotations

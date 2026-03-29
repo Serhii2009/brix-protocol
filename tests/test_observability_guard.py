@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for ObservabilityGuard."""
 
 from __future__ import annotations
@@ -6,7 +7,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -258,9 +258,7 @@ async def test_dre_session_file_written(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_dre_session_rotation(tmp_path: Path):
-    guard = ObservabilityGuard(
-        log_path=tmp_path, guard_names=[], max_session_records=2
-    )
+    guard = ObservabilityGuard(log_path=tmp_path, guard_names=[], max_session_records=2)
     ctx = _make_context("rotate-test")
     req = _make_request()
 

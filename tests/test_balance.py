@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for the Balance Index tracker — harmonic mean and counter correctness."""
 
 from __future__ import annotations

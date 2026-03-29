@@ -72,5 +72,5 @@ class AnthropicClient:
         # Extract text from the first content block
         for block in response.content:
             if block.type == "text":
-                return block.text
+                return str(block.text)
         return ""

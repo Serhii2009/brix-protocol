@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for RegulatedGuard."""
 
 from __future__ import annotations
@@ -172,7 +173,7 @@ async def test_pre_call_circuit_breaker_raises_guard_blocked(
     # Note: intervention_necessary depends on the BrixRouter logic
     # We test that if CB fires, the guard raises BrixGuardBlockedError
     try:
-        result = await guard.pre_call(request, context)
+        await guard.pre_call(request, context)
         # If no exception, the CB fired but was not intervention_necessary
         # Check the stored result
         if "regulated_result" in context.metadata:

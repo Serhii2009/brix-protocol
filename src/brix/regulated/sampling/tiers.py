@@ -15,6 +15,8 @@ else:
 
 from brix.regulated.spec.models import SamplingConfig
 
+__all__ = ["RiskTier", "SamplingConfig", "determine_tier", "samples_for_tier"]
+
 
 class RiskTier(StrEnum):
     """Risk tier determined by risk score or circuit breaker hit."""

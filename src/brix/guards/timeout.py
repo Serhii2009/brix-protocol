@@ -23,8 +23,7 @@ Three timeout levels (all optional, all independent):
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import datetime, timezone
 
 from brix.context import ExecutionContext
 from brix.exceptions import BrixTimeoutError

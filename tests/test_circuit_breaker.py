@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for the Circuit Breaker Track."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg,arg-type"
 """Tests for the uncertainty classifier — all threshold boundary conditions."""
 
 from __future__ import annotations

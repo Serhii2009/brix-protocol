@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for RateLimitGuard."""
 
 from __future__ import annotations
@@ -139,9 +140,7 @@ async def test_no_retry_history_in_metadata_is_noop():
 async def test_non_adaptive_rate_unchanged_on_429():
     guard = RateLimitGuard(requests_per_minute=60, adaptive=False)
     ctx = _make_context()
-    ctx.metadata["retry_history"] = [
-        {"attempt": 0, "error": "HTTP 429", "delay": 0.0}
-    ]
+    ctx.metadata["retry_history"] = [{"attempt": 0, "error": "HTTP 429", "delay": 0.0}]
     initial_rate = guard.effective_rate
     await guard.post_call(_make_request(), _make_response(), ctx)
     assert guard.effective_rate == initial_rate
@@ -153,7 +152,9 @@ async def test_non_adaptive_rate_unchanged_on_429():
 
 
 def test_rate_floor_not_exceeded():
-    bucket = _TokenBucket(rate_per_minute=100, adaptive=True, min_rate_fraction=0.1, burst_capacity=None)
+    bucket = _TokenBucket(
+        rate_per_minute=100, adaptive=True, min_rate_fraction=0.1, burst_capacity=None
+    )
     # Reduce many times
     for _ in range(20):
         bucket.record_429(reduction_factor=0.5)
@@ -162,7 +163,9 @@ def test_rate_floor_not_exceeded():
 
 
 def test_rate_ceiling_not_exceeded():
-    bucket = _TokenBucket(rate_per_minute=60, adaptive=True, min_rate_fraction=0.1, burst_capacity=None)
+    bucket = _TokenBucket(
+        rate_per_minute=60, adaptive=True, min_rate_fraction=0.1, burst_capacity=None
+    )
     # Record 429 to lower rate, then recover many times
     bucket.record_429(0.5)
     bucket._last_429_time = 0.0  # force recovery condition
@@ -177,7 +180,9 @@ def test_rate_ceiling_not_exceeded():
 
 
 def test_burst_capacity_limits_bucket():
-    bucket = _TokenBucket(rate_per_minute=600, adaptive=False, min_rate_fraction=0.1, burst_capacity=2)
+    bucket = _TokenBucket(
+        rate_per_minute=600, adaptive=False, min_rate_fraction=0.1, burst_capacity=2
+    )
     # Capacity should be min(600/60=10, 2) = 2
     assert bucket._capacity() <= 2.0
 
@@ -218,7 +223,9 @@ async def test_concurrent_acquire_no_over_issuance():
 
 
 def test_rate_recovers_after_window():
-    bucket = _TokenBucket(rate_per_minute=100, adaptive=True, min_rate_fraction=0.1, burst_capacity=None)
+    bucket = _TokenBucket(
+        rate_per_minute=100, adaptive=True, min_rate_fraction=0.1, burst_capacity=None
+    )
     bucket.record_429(0.5)  # rate → 50
     reduced_rate = bucket.effective_rate
     # Force time to be past recovery window

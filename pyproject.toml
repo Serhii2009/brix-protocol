@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "brix-protocol"
-version = "0.4.2"
+version = "0.5.0"
 description = "Runtime Reliability Infrastructure for LLM Pipelines"
 readme = "README.md"
 license = "MIT"
@@ -38,6 +38,7 @@ regulated = [
     "sentence-transformers>=2.2.0",
     "numpy>=1.24",
 ]
+semantic = ["sentence-transformers>=2.2.0"]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.30"]
 dev = [
@@ -47,8 +48,9 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
     "pre-commit>=3.0",
+    "types-PyYAML>=6.0",
 ]
-all = ["brix-protocol[regulated,openai,anthropic]"]
+all = ["brix-protocol[regulated,semantic,openai,anthropic]"]
 
 [project.scripts]
 brix = "brix.cli.main:app"

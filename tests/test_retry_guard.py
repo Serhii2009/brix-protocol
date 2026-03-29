@@ -1,10 +1,11 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for RetryGuard."""
 
 from __future__ import annotations
 
 import asyncio
 import warnings
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -225,7 +226,7 @@ async def test_retry_budget_exhaustion_raises():
     guard = RetryGuard(
         _make_callable([error] * 10),
         max_retries=5,
-        backoff_base=100.0,   # large delay
+        backoff_base=100.0,  # large delay
         retry_budget_seconds=0.001,  # tiny budget
     )
     ctx = _make_context()
@@ -331,8 +332,6 @@ async def test_budget_guard_blocks_before_retry_guard_calls_llm():
     from brix.chain import InterceptorChain
     from brix.client import build_llm_callable
 
-    llm_mock = AsyncMock()
-
     class _MockLLM:
         async def complete(self, prompt, *, system, temperature, max_tokens):
             return "ok"
@@ -371,9 +370,7 @@ async def test_timeout_guard_sets_metadata_before_retry_reads_it():
             return await super().pre_call(request, context)
 
     timeout_guard = TimeoutGuard(per_call=7.5)
-    retry_guard = _TimeoutCapturingRetryGuard(
-        capturing_callable, max_retries=0, backoff_base=0.0
-    )
+    retry_guard = _TimeoutCapturingRetryGuard(capturing_callable, max_retries=0, backoff_base=0.0)
 
     from brix.chain import InterceptorChain
     from brix.client import build_llm_callable

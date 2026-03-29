@@ -1,10 +1,9 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for BudgetGuard."""
 
 from __future__ import annotations
 
-import asyncio
 import warnings
-from unittest.mock import patch
 
 import pytest
 

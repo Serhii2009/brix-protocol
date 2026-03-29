@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for brix lint CLI command."""
 
 from __future__ import annotations

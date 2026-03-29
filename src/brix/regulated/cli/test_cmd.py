@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 
 import typer
 import yaml
@@ -136,9 +137,9 @@ def test_cmd(
     raise typer.Exit(code=0)
 
 
-async def _run_tests(router: BrixRouter, test_cases: list[dict]) -> list[dict]:
+async def _run_tests(router: BrixRouter, test_cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Run all test cases and collect results."""
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for case in test_cases:
         query = case.get("query", "")
         expected_intervention = case.get("expected_intervention", False)
@@ -170,7 +171,7 @@ async def _run_tests(router: BrixRouter, test_cases: list[dict]) -> list[dict]:
     return results
 
 
-def _create_mock_analyzer():
+def _create_mock_analyzer() -> Any:
     """Create a mock analyzer that skips sentence-transformers loading."""
     from brix.regulated.analysis.consistency import ConsistencyResult
 

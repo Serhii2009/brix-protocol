@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Shared test fixtures for BRIX tests."""
 
 from __future__ import annotations

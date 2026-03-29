@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for the Risk Score Track — formula correctness."""
 
 from __future__ import annotations

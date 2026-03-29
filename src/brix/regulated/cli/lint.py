@@ -240,10 +240,6 @@ def _estimate_balance_index(spec: SpecModel, utility_impact: float) -> float:
     if total_patterns == 0:
         return 0.0
 
-    total_exclusions = sum(len(cb.exclude_context) for cb in spec.circuit_breakers) + sum(
-        len(s.exclude_context) for s in spec.risk_signals
-    )
-
     # Estimated reliability: more patterns = better coverage
     est_reliability = min(0.95, 0.70 + total_patterns * 0.005)
 

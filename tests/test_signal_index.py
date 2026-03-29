@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for the Aho-Corasick signal index."""
 
 from __future__ import annotations

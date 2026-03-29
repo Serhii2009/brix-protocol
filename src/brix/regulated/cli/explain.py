@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import typer
 from rich.console import Console
@@ -38,7 +39,7 @@ def explain_cmd(
     raise typer.Exit(code=0)
 
 
-def _find_decision(log_path: Path, decision_id: str) -> dict | None:
+def _find_decision(log_path: Path, decision_id: str) -> dict[str, Any] | None:
     """Search a JSONL log file for a specific decision ID."""
     with open(log_path, encoding="utf-8") as f:
         for line in f:
@@ -50,11 +51,11 @@ def _find_decision(log_path: Path, decision_id: str) -> dict | None:
             except json.JSONDecodeError:
                 continue
             if str(record.get("decision_id", "")) == decision_id:
-                return record
+                return cast(dict[str, Any], record)
     return None
 
 
-def _display_trace(record: dict) -> None:
+def _display_trace(record: dict[str, Any]) -> None:
     """Display the full decision trace from a structured result record."""
     # Header
     console.print(

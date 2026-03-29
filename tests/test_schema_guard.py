@@ -1,10 +1,10 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for SchemaGuard."""
 
 from __future__ import annotations
 
 import asyncio
 import json
-import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -51,9 +51,9 @@ def _make_response(content: str) -> CallResponse:
 
 
 def _make_llm_callable(responses: list) -> AsyncMock:
-    return AsyncMock(side_effect=[
-        CallResponse(content=r) if isinstance(r, str) else r for r in responses
-    ])
+    return AsyncMock(
+        side_effect=[CallResponse(content=r) if isinstance(r, str) else r for r in responses]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -122,10 +122,12 @@ async def test_schema_injection_creates_system_message_when_absent():
 async def test_schema_injection_appends_to_existing_system_message():
     guard = SchemaGuard(AsyncMock(), SimpleSchema)
     ctx = _make_context()
-    req = _make_request([
-        {"role": "system", "content": "You are helpful."},
-        {"role": "user", "content": "Test"},
-    ])
+    req = _make_request(
+        [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Test"},
+        ]
+    )
     result = await guard.pre_call(req, ctx)
     system_msgs = [m for m in result.messages if m.get("role") == "system"]
     assert len(system_msgs) == 1
@@ -211,7 +213,7 @@ async def test_validation_error_triggers_reprompt():
     llm_callable = _make_llm_callable([valid_json])
     guard = SchemaGuard(llm_callable, SimpleSchema, max_retries=1)
     ctx = _make_context()
-    resp = _make_response('not json at all')
+    resp = _make_response("not json at all")
     result = await guard.post_call(_make_request(), resp, ctx)
     assert isinstance(result.content, SimpleSchema)
     assert llm_callable.call_count == 1  # one re-prompt

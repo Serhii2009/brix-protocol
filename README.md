@@ -2,12 +2,12 @@
 
 # BRIX — Runtime Reliability Infrastructure for LLM Pipelines
 
-_One wrap() call. Seven guards. Zero hidden coupling._
+_Nine guards. One wrap() call._
 
 [![PyPI version](https://img.shields.io/pypi/v/brix-protocol?cachebust=0)](https://pypi.org/project/brix-protocol/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen.svg)]()
 
 </div>
 
@@ -22,6 +22,7 @@ BRIX wraps any LLM client with a configurable chain of guards, each solving exac
 ```bash
 pip install brix-protocol                   # core guards only
 pip install "brix-protocol[regulated]"      # + regulated-domain analysis (~500 MB)
+pip install "brix-protocol[semantic]"       # + semantic loop detection
 pip install "brix-protocol[openai]"         # + OpenAI adapter
 pip install "brix-protocol[anthropic]"      # + Anthropic adapter
 pip install "brix-protocol[all]"            # everything
@@ -49,6 +50,8 @@ async def main():
         max_cost_usd=1.0,           # BudgetGuard: hard cost cap
         requests_per_minute=60,     # RateLimitGuard: adaptive throttle
         per_call_timeout=10.0,      # TimeoutGuard: 10 s per call
+        exact_loop_detection=True,  # LoopGuard: detect infinite agent loops
+        max_context_tokens=8000,    # ContextGuard: compress history to fit
         max_retries=3,              # RetryGuard: 429/5xx → backoff
         response_schema=Answer,     # SchemaGuard: guaranteed structured output
         log_path="./traces",        # ObservabilityGuard: audit log + replay
@@ -68,21 +71,60 @@ async def main():
 asyncio.run(main())
 ```
 
+### Running the demo
+
+`examples/quickstart.py` is a single self-contained script covering all nine guards:
+
+```bash
+# Run all scenarios back-to-back (default)
+python examples/quickstart.py
+
+# Run a single scenario
+python examples/quickstart.py --scenario schema
+python examples/quickstart.py --scenario budget
+python examples/quickstart.py --scenario timeout
+python examples/quickstart.py --scenario rate_limit
+python examples/quickstart.py --scenario loop
+python examples/quickstart.py --scenario context
+python examples/quickstart.py --scenario retry
+python examples/quickstart.py --scenario observability
+python examples/quickstart.py --scenario regulated
+
+# Clear the cached API key
+python examples/quickstart.py --reset-key
+```
+
+| Scenario        | Guard              | What it demonstrates                                                    |
+| --------------- | ------------------ | ----------------------------------------------------------------------- |
+| `schema`        | SchemaGuard        | JSON validation with self-healing re-prompts                            |
+| `budget`        | BudgetGuard        | Hard cost cap — blocks a call before any tokens are sent                |
+| `timeout`       | TimeoutGuard       | Per-call deadline — call killed after a 100 µs limit                    |
+| `rate_limit`    | RateLimitGuard     | Token-bucket throttle — second call held for rate refill                |
+| `loop`          | LoopGuard          | Exact-duplicate detection — diversity prompt injected                   |
+| `context`       | ContextGuard       | Sliding-window compression when history exceeds token budget            |
+| `retry`         | RetryGuard         | Exponential backoff on simulated 429 errors                             |
+| `observability` | ObservabilityGuard | SHA-256 chained audit trail via `get_traces()`                          |
+| `regulated`     | RegulatedGuard     | Domain-policy enforcement — dangerous query blocked (no API key needed) |
+
+**API key caching.** On the first run, if `OPENAI_API_KEY` is not set, the script prompts for a key and saves it to `~/.brix_key` (permissions `0o600`). Subsequent runs skip the prompt. Use `--reset-key` to delete the cached key.
+
 ---
 
 ## The Guard System
 
-| Guard                  | Activated by                      | Guarantee                                                  |
-| ---------------------- | --------------------------------- | ---------------------------------------------------------- |
-| **BudgetGuard**        | `max_cost_usd`                    | No tokens spent after budget exhausted                     |
-| **RateLimitGuard**     | `requests_per_minute`             | Average throughput ≤ configured rate                       |
-| **TimeoutGuard**       | `per_call/per_step/total_timeout` | `asyncio.wait_for` absolute — no call outlives limit       |
-| **ObservabilityGuard** | _always active_                   | Every call in buffer; SHA-256 chained audit log            |
-| **SchemaGuard**        | `response_schema`                 | Return value is valid Pydantic instance or raises          |
-| **RetryGuard**         | `max_retries`                     | Transient errors retried with jittered exponential backoff |
-| **RegulatedGuard**     | `regulated_spec`                  | Circuit breakers + risk scoring for regulated domains      |
+| Guard                  | Activated by                                       | Guarantee                                                  |
+| ---------------------- | -------------------------------------------------- | ---------------------------------------------------------- |
+| **BudgetGuard**        | `max_cost_usd`                                     | No tokens spent after budget exhausted                     |
+| **RateLimitGuard**     | `requests_per_minute`                              | Average throughput ≤ configured rate                       |
+| **TimeoutGuard**       | `per_call/per_step/total_timeout`                  | `asyncio.wait_for` absolute — no call outlives limit       |
+| **LoopGuard**          | `exact_loop_detection` / `semantic_loop_detection` | Infinite agent loops detected and interrupted              |
+| **ContextGuard**       | `max_context_tokens`                               | `prompt_tokens ≤ max_context_tokens − reserve_tokens`      |
+| **ObservabilityGuard** | _always active_                                    | Every call in buffer; SHA-256 chained audit log            |
+| **SchemaGuard**        | `response_schema`                                  | Return value is valid Pydantic instance or raises          |
+| **RetryGuard**         | `max_retries`                                      | Transient errors retried with jittered exponential backoff |
+| **RegulatedGuard**     | `regulated_spec`                                   | Circuit breakers + risk scoring for regulated domains      |
 
-**Execution order:** `Budget → RateLimit → Timeout → Observability → Schema → Retry → Regulated`
+**Execution order:** `Budget → RateLimit → Timeout → Loop → Context → Observability → Schema → Retry → Regulated`
 
 ---
 
@@ -131,6 +173,40 @@ Enforces three independent timeout levels at different abstraction layers.
 **Guarantee:** `asyncio.wait_for` is absolute — no single call can outlive `per_call_timeout`.
 
 Raises: `BrixTimeoutError`
+
+---
+
+### LoopGuard
+
+Detects infinite response loops in agent and conversational workflows. Tier 1 uses SHA-256 hashing for exact duplicate detection (zero false positives). Tier 2 uses cosine similarity via sentence-transformers for near-duplicate semantic detection.
+
+- `exact_loop_detection=False` — enable Tier 1; activates guard
+- `exact_loop_threshold=3` — identical responses needed to trigger
+- `semantic_loop_detection=False` — enable Tier 2 (requires `[semantic]` extra)
+- `semantic_loop_threshold=0.92` — cosine similarity threshold
+- `on_loop="inject_diversity"` — `"inject_diversity"` injects a prompt; `"raise"` raises immediately
+- `diversity_attempts=2` — max injections before raising
+- `loop_window=10` — rolling window for response history
+- `loop_diversity_prompt=None` — custom diversity text; uses built-in if `None`
+
+**Guarantee:** Tier 1 detection is exact (SHA-256). Tier 2 carries the false-positive rate of the underlying embedding model (~95% accuracy at default threshold).
+
+Raises: `BrixLoopError`
+
+---
+
+### ContextGuard
+
+Compresses conversation history before each call to keep the prompt within the model's context window, reserving space for the response.
+
+- `max_context_tokens` — max tokens per request; activates guard
+- `context_strategy="sliding_window"` — `"sliding_window"` keeps system messages + most recent turns; `"summarize"` replaces older history with an LLM-generated summary; `"importance"` scores and prunes by turn importance
+- `context_reserve_tokens=500` — tokens reserved for the model response
+- `context_summary_model=None` — model for summarisation calls; uses main model if `None`
+
+**Guarantee:** `prompt_tokens ≤ max_context_tokens − reserve_tokens` after trimming.
+
+Raises: `BrixGuardError` (only if `summarize` strategy cannot reach a model)
 
 ---
 
@@ -367,15 +443,16 @@ result = await guard.analyze(response_text, query=original_query)
 
 All exceptions inherit from `BrixError`.
 
-| Exception                | Raised by                               | Condition                                    |
-| ------------------------ | --------------------------------------- | -------------------------------------------- |
-| `BrixBudgetError`        | BudgetGuard                             | Cost limit exceeded                          |
-| `BrixTimeoutError`       | TimeoutGuard                            | Time limit exceeded                          |
-| `BrixSchemaError`        | SchemaGuard                             | Validation failed after all retries          |
-| `BrixGuardBlockedError`  | RetryGuard, RegulatedGuard              | Request blocked or all retries exhausted     |
-| `BrixGuardError`         | ObservabilityGuard (`strict_mode=True`) | Guard-internal failure                       |
-| `BrixReplayError`        | `BrixReplayClient`                      | Missing session file or no recorded response |
-| `BrixConfigurationError` | `BrixClient`                            | Unsupported or misconfigured LLM client      |
+| Exception                | Raised by                               | Condition                                             |
+| ------------------------ | --------------------------------------- | ----------------------------------------------------- |
+| `BrixBudgetError`        | BudgetGuard                             | Cost limit exceeded                                   |
+| `BrixTimeoutError`       | TimeoutGuard                            | Time limit exceeded                                   |
+| `BrixLoopError`          | LoopGuard                               | Infinite response loop detected and `on_loop="raise"` |
+| `BrixSchemaError`        | SchemaGuard                             | Validation failed after all retries                   |
+| `BrixGuardBlockedError`  | RetryGuard, RegulatedGuard              | Request blocked or all retries exhausted              |
+| `BrixGuardError`         | ObservabilityGuard (`strict_mode=True`) | Guard-internal failure                                |
+| `BrixReplayError`        | `BrixReplayClient`                      | Missing session file or no recorded response          |
+| `BrixConfigurationError` | `BrixClient`                            | Unsupported or misconfigured LLM client               |
 
 ---
 
@@ -414,6 +491,28 @@ Legacy alias: `rate_limit_rpm` → `requests_per_minute`
 
 Legacy alias: `max_time_seconds` → `per_call_timeout`
 
+### LoopGuard
+
+| Parameter                 | Type          | Default              | Description                                            |
+| ------------------------- | ------------- | -------------------- | ------------------------------------------------------ |
+| `exact_loop_detection`    | `bool`        | `False`              | Enable Tier 1 SHA-256 exact detection; activates guard |
+| `exact_loop_threshold`    | `int`         | `3`                  | Identical responses needed to trigger                  |
+| `semantic_loop_detection` | `bool`        | `False`              | Enable Tier 2 cosine-similarity detection              |
+| `semantic_loop_threshold` | `float`       | `0.92`               | Cosine similarity threshold                            |
+| `on_loop`                 | `str`         | `"inject_diversity"` | `"inject_diversity"` or `"raise"`                      |
+| `diversity_attempts`      | `int`         | `2`                  | Max diversity injections before raising                |
+| `loop_window`             | `int`         | `10`                 | Rolling response history window                        |
+| `loop_diversity_prompt`   | `str \| None` | `None`               | Custom diversity text; uses built-in if `None`         |
+
+### ContextGuard
+
+| Parameter                | Type          | Default            | Description                                          |
+| ------------------------ | ------------- | ------------------ | ---------------------------------------------------- |
+| `max_context_tokens`     | `int \| None` | `None`             | Max tokens per request; activates guard              |
+| `context_strategy`       | `str`         | `"sliding_window"` | `"sliding_window"`, `"summarize"`, or `"importance"` |
+| `context_reserve_tokens` | `int`         | `500`              | Tokens reserved for model response                   |
+| `context_summary_model`  | `str \| None` | `None`             | Model for summarisation; uses main model if `None`   |
+
 ### ObservabilityGuard _(always active)_
 
 | Parameter             | Type                  | Default | Description                               |
@@ -447,6 +546,14 @@ Legacy alias: `max_time_seconds` → `per_call_timeout`
 | Parameter        | Type                  | Default | Description                                 |
 | ---------------- | --------------------- | ------- | ------------------------------------------- |
 | `regulated_spec` | `str \| Path \| None` | `None`  | Spec path or built-in name; activates guard |
+
+---
+
+## Examples
+
+| File                     | Scenarios                                                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `examples/quickstart.py` | All nine guards: `schema`, `budget`, `timeout`, `rate_limit`, `loop`, `context`, `retry`, `observability`, `regulated` — run with `--scenario <name>` or omit to run all |
 
 ---
 

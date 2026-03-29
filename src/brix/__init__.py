@@ -64,7 +64,7 @@ from brix.regulated import (
     load_spec_from_dict,
 )
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 
 __all__ = [
     # New public API

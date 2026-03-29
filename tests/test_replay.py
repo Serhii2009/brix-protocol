@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for BrixReplayClient and BRIX.replay()."""
 
 from __future__ import annotations
@@ -39,11 +40,33 @@ def _write_dre_records(sessions_dir: Path, session_id: str, records: list[dict])
 async def test_sequential_replay_returns_responses_in_order(tmp_path: Path):
     session_id = "seq-test"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {"run_id": "r1", "sequence": 1, "content": "first", "content_type": "str", "usage": None},
-        {"run_id": "r2", "sequence": 2, "content": "second", "content_type": "str", "usage": None},
-        {"run_id": "r3", "sequence": 3, "content": "third", "content_type": "str", "usage": None},
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {
+                "run_id": "r1",
+                "sequence": 1,
+                "content": "first",
+                "content_type": "str",
+                "usage": None,
+            },
+            {
+                "run_id": "r2",
+                "sequence": 2,
+                "content": "second",
+                "content_type": "str",
+                "usage": None,
+            },
+            {
+                "run_id": "r3",
+                "sequence": 3,
+                "content": "third",
+                "content_type": "str",
+                "usage": None,
+            },
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path)
     assert await client.complete() == "first"
     assert await client.complete() == "second"
@@ -60,9 +83,19 @@ async def test_brix_replay_error_on_missing_session(tmp_path: Path):
 async def test_brix_replay_error_when_calls_exceed_records(tmp_path: Path):
     session_id = "short-test"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {"run_id": "r1", "sequence": 1, "content": "only", "content_type": "str", "usage": None},
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {
+                "run_id": "r1",
+                "sequence": 1,
+                "content": "only",
+                "content_type": "str",
+                "usage": None,
+            },
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path)
     await client.complete()  # first succeeds
     with pytest.raises(BrixReplayError, match="no recorded response"):
@@ -77,9 +110,13 @@ async def test_brix_replay_error_when_calls_exceed_records(tmp_path: Path):
 def test_brix_replay_returns_replay_client(tmp_path: Path):
     session_id = "factory-test"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {"run_id": "r1", "sequence": 1, "content": "hi", "content_type": "str", "usage": None},
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {"run_id": "r1", "sequence": 1, "content": "hi", "content_type": "str", "usage": None},
+        ],
+    )
     client = BRIX.replay(session_id=session_id, log_path=tmp_path)
     assert isinstance(client, BrixReplayClient)
 
@@ -88,9 +125,13 @@ def test_brix_replay_returns_replay_client(tmp_path: Path):
 async def test_acomplete_alias(tmp_path: Path):
     session_id = "alias-test"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {"run_id": "r1", "sequence": 1, "content": "hi", "content_type": "str", "usage": None},
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {"run_id": "r1", "sequence": 1, "content": "hi", "content_type": "str", "usage": None},
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path)
     result = await client.acomplete()
     assert result == "hi"
@@ -105,14 +146,19 @@ async def test_acomplete_alias(tmp_path: Path):
 async def test_pydantic_response_with_schema_returns_model_instance(tmp_path: Path):
     session_id = "pydantic-test"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {
-            "run_id": "r1", "sequence": 1,
-            "content": {"answer": "yes", "confidence": 0.9},
-            "content_type": "pydantic:OutputModel",
-            "usage": None,
-        },
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {
+                "run_id": "r1",
+                "sequence": 1,
+                "content": {"answer": "yes", "confidence": 0.9},
+                "content_type": "pydantic:OutputModel",
+                "usage": None,
+            },
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path, schema=OutputModel)
     result = await client.complete()
     assert isinstance(result, OutputModel)
@@ -124,21 +170,27 @@ async def test_pydantic_response_with_schema_returns_model_instance(tmp_path: Pa
 async def test_pydantic_response_without_schema_returns_dict_and_warns(tmp_path: Path):
     session_id = "pydantic-no-schema"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {
-            "run_id": "r1", "sequence": 1,
-            "content": {"answer": "yes", "confidence": 0.9},
-            "content_type": "pydantic:OutputModel",
-            "usage": None,
-        },
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {
+                "run_id": "r1",
+                "sequence": 1,
+                "content": {"answer": "yes", "confidence": 0.9},
+                "content_type": "pydantic:OutputModel",
+                "usage": None,
+            },
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path, schema=None)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         result = await client.complete()
     assert isinstance(result, dict)
-    assert any("schema" in str(w.message).lower() or "pydantic" in str(w.message).lower()
-               for w in caught)
+    assert any(
+        "schema" in str(w.message).lower() or "pydantic" in str(w.message).lower() for w in caught
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -151,11 +203,33 @@ async def test_records_sorted_by_sequence_regardless_of_file_order(tmp_path: Pat
     session_id = "order-test"
     sessions_dir = tmp_path / ".brix_sessions"
     # Write in wrong order
-    _write_dre_records(sessions_dir, session_id, [
-        {"run_id": "r3", "sequence": 3, "content": "third", "content_type": "str", "usage": None},
-        {"run_id": "r1", "sequence": 1, "content": "first", "content_type": "str", "usage": None},
-        {"run_id": "r2", "sequence": 2, "content": "second", "content_type": "str", "usage": None},
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {
+                "run_id": "r3",
+                "sequence": 3,
+                "content": "third",
+                "content_type": "str",
+                "usage": None,
+            },
+            {
+                "run_id": "r1",
+                "sequence": 1,
+                "content": "first",
+                "content_type": "str",
+                "usage": None,
+            },
+            {
+                "run_id": "r2",
+                "sequence": 2,
+                "content": "second",
+                "content_type": "str",
+                "usage": None,
+            },
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path)
     assert await client.complete() == "first"
     assert await client.complete() == "second"
@@ -171,16 +245,33 @@ async def test_records_sorted_by_sequence_regardless_of_file_order(tmp_path: Pat
 async def test_mixed_str_and_pydantic_responses(tmp_path: Path):
     session_id = "mixed-test"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {"run_id": "r1", "sequence": 1, "content": "plain string", "content_type": "str", "usage": None},
-        {
-            "run_id": "r2", "sequence": 2,
-            "content": {"answer": "model", "confidence": 0.7},
-            "content_type": "pydantic:OutputModel",
-            "usage": None,
-        },
-        {"run_id": "r3", "sequence": 3, "content": "another string", "content_type": "str", "usage": None},
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {
+                "run_id": "r1",
+                "sequence": 1,
+                "content": "plain string",
+                "content_type": "str",
+                "usage": None,
+            },
+            {
+                "run_id": "r2",
+                "sequence": 2,
+                "content": {"answer": "model", "confidence": 0.7},
+                "content_type": "pydantic:OutputModel",
+                "usage": None,
+            },
+            {
+                "run_id": "r3",
+                "sequence": 3,
+                "content": "another string",
+                "content_type": "str",
+                "usage": None,
+            },
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path, schema=OutputModel)
     r1 = await client.complete()
     r2 = await client.complete()
@@ -210,8 +301,8 @@ async def test_round_trip_record_and_replay(tmp_path: Path):
     for i, content in enumerate(responses):
         ctx.run_id = f"run-{i}"
         ctx.call_count = i + 1
-        req = CallResponse(content=content)
         from brix.guards.protocol import CallRequest
+
         call_req = CallRequest(messages=[{"role": "user", "content": "test"}], model="gpt-4o-mini")
         call_resp = CallResponse(content=content)
         await guard.pre_call(call_req, ctx)
@@ -232,9 +323,13 @@ async def test_round_trip_record_and_replay(tmp_path: Path):
 def test_session_id_property(tmp_path: Path):
     session_id = "prop-test"
     sessions_dir = tmp_path / ".brix_sessions"
-    _write_dre_records(sessions_dir, session_id, [
-        {"run_id": "r1", "sequence": 1, "content": "hi", "content_type": "str", "usage": None},
-    ])
+    _write_dre_records(
+        sessions_dir,
+        session_id,
+        [
+            {"run_id": "r1", "sequence": 1, "content": "hi", "content_type": "str", "usage": None},
+        ],
+    )
     client = BrixReplayClient(session_id=session_id, log_path=tmp_path)
     assert client.session_id == session_id
     assert client.total_calls == 1
@@ -253,6 +348,7 @@ def test_purge_sessions_deletes_old_files(tmp_path: Path):
     old_file.write_text('{"run_id": "x", "sequence": 1}\n')
     # Make the file appear old
     import os
+
     old_time = 0.0  # epoch — definitely older than 7 days
     os.utime(old_file, (old_time, old_time))
 

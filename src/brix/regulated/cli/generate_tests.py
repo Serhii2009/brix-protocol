@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 import yaml
@@ -34,7 +35,7 @@ def generate_tests_cmd(
     output_dir = Path(output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    test_cases: list[dict] = []
+    test_cases: list[dict[str, Any]] = []
     counts = {
         "circuit_breaker_positive": 0,
         "circuit_breaker_negative": 0,

@@ -58,7 +58,7 @@ def _extract_json(text: str) -> str:
         return match.group(1).strip()
 
     # 2. Find first JSON object or array and balance brackets
-    for open_c, close_c in [('{', '}'), ('[', ']')]:
+    for open_c, close_c in [("{", "}"), ("[", "]")]:
         start = stripped.find(open_c)
         if start == -1:
             continue
@@ -69,7 +69,7 @@ def _extract_json(text: str) -> str:
             if escape_next:
                 escape_next = False
                 continue
-            if ch == '\\' and in_string:
+            if ch == "\\" and in_string:
                 escape_next = True
                 continue
             if ch == '"':
@@ -82,7 +82,7 @@ def _extract_json(text: str) -> str:
             elif ch == close_c:
                 depth -= 1
                 if depth == 0:
-                    return stripped[start:i + 1]
+                    return stripped[start : i + 1]
         break
 
     # 3. Fallback
@@ -255,9 +255,7 @@ class SchemaGuard:
                     raw=response.raw,
                 )
             except (ValidationError, JSONDecodeError, ValueError) as exc:
-                history.append(
-                    {"attempt": attempt, "response": current, "error": str(exc)}
-                )
+                history.append({"attempt": attempt, "response": current, "error": str(exc)})
                 if attempt >= self._max_retries:
                     break
 

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg,arg-type"
 """Integration tests for BrixRouter — end-to-end with MockLLMClient."""
 
 from __future__ import annotations

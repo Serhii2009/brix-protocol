@@ -118,8 +118,9 @@ class BudgetGuard:
         current_spend = context.session_cost_usd
         projected_spend = current_spend + estimated_cost
 
-        # Proactive warning at threshold
-        if projected_spend >= self._warning_threshold * self._max_cost:
+        # Proactive warning at threshold (skip when max_cost is zero — zero means
+        # "block everything"; emitting a threshold warning would be misleading)
+        if self._max_cost > 0 and projected_spend >= self._warning_threshold * self._max_cost:
             warnings.warn(
                 f"BudgetGuard: session cost ${current_spend:.4f} + estimated "
                 f"${estimated_cost:.4f} = ${projected_spend:.4f} is at or above "
@@ -174,9 +175,7 @@ class BudgetGuard:
         async with self._lock:
             usage = response.usage
             prompt_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-            completion_tokens = (
-                usage.get("completion_tokens") or usage.get("output_tokens") or 0
-            )
+            completion_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
             input_price, output_price = get_price(request.model)
             actual_cost = (prompt_tokens * input_price) + (completion_tokens * output_price)
 

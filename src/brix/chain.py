@@ -11,7 +11,7 @@ import time
 from collections.abc import Awaitable, Callable
 
 from brix.context import CallRecord, ExecutionContext
-from brix.exceptions import BrixGuardBlockedError, BrixGuardError, BrixInternalError
+from brix.exceptions import BrixGuardBlockedError, BrixGuardError, BrixInternalError, BrixError
 from brix.guards.protocol import CallRequest, CallResponse, Guard
 
 
@@ -129,15 +129,14 @@ class InterceptorChain:
             try:
                 response = await guard.post_call(request, response, context)
             except Exception as exc:
-                # Wrap post_call failures; don't short-circuit — keep running.
+                # Don't wrap BrixErrors — let them propagate directly.
                 if post_call_error is None:
-                    post_call_error = (
-                        BrixInternalError(
+                    if isinstance(exc, BrixError):
+                        post_call_error = exc
+                    else:
+                        post_call_error = BrixInternalError(
                             f"[{guard.name}] post_call raised an unexpected error: {exc}"
                         )
-                        if not isinstance(exc, BrixGuardError)
-                        else exc
-                    )
 
         # Re-raise blocked error (takes priority over post_call errors)
         if blocked_error is not None:

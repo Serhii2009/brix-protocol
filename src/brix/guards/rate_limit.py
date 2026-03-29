@@ -174,9 +174,7 @@ class RateLimitGuard:
         recovery_window_seconds: float = 60.0,
         burst_capacity: int | None = None,
     ) -> None:
-        self._bucket = _TokenBucket(
-            requests_per_minute, adaptive, min_rate_floor, burst_capacity
-        )
+        self._bucket = _TokenBucket(requests_per_minute, adaptive, min_rate_floor, burst_capacity)
         self._reduction_factor = rate_reduction_factor
         self._recovery_factor = rate_recovery_factor
         self._recovery_window = recovery_window_seconds

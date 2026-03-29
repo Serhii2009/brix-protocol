@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for the semantic consistency analyzer.
 
 Note: These tests use the real sentence-transformers model.

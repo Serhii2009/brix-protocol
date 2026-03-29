@@ -137,9 +137,7 @@ class ObservabilityGuard:
 
             if self._log_path is not None:
                 self._write_audit(entry)
-                self._write_dre(
-                    context.session_id, context.run_id, context.call_count, response
-                )
+                self._write_dre(context.session_id, context.run_id, context.call_count, response)
 
         return response
 

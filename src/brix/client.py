@@ -21,9 +21,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
-import inspect
 import time
-import warnings
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +33,7 @@ from brix.context import CallRecord, ExecutionContext
 from brix.exceptions import BrixConfigurationError
 from brix.guards.protocol import CallRequest, CallResponse, Guard
 from brix.settings import get_settings
+from brix.exceptions import BrixTimeoutError
 
 if TYPE_CHECKING:
     from brix.guards.observability import ObservabilityGuard
@@ -88,20 +87,15 @@ class _OpenAIAdapter:
         max_tokens = request.kwargs.get("max_tokens", 1024)
 
         create = self._client.chat.completions.create
-        if inspect.iscoroutinefunction(create):
-            raw = await create(
-                model=model,
-                messages=request.messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-        else:
-            raw = create(
-                model=model,
-                messages=request.messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
+        raw = create(
+            model=model,
+            messages=request.messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        # If it's a coroutine, await it
+        if asyncio.iscoroutine(raw):
+            raw = await raw
 
         content: str = raw.choices[0].message.content or ""
         usage = None
@@ -136,10 +130,9 @@ class _AnthropicAdapter:
             kwargs["system"] = "\n".join(system_parts)
 
         create = self._client.messages.create
-        if inspect.iscoroutinefunction(create):
-            raw = await create(**kwargs)
-        else:
-            raw = create(**kwargs)
+        raw = create(**kwargs)
+        if asyncio.iscoroutine(raw):
+            raw = await raw
 
         content = raw.content[0].text if raw.content else ""
         usage = None
@@ -217,7 +210,10 @@ class BrixClient:
         async def _timeout_aware_callable(request: CallRequest) -> CallResponse:
             timeout: float | None = context.metadata.get("_per_call_timeout")
             if timeout is not None:
-                return await asyncio.wait_for(base_callable(request), timeout=timeout)
+                try:
+                    return await asyncio.wait_for(base_callable(request), timeout=timeout)
+                except asyncio.TimeoutError as exc:
+                    raise BrixTimeoutError(f"per_call_timeout={timeout}s exceeded") from exc
             return await base_callable(request)
 
         self._llm_callable = _timeout_aware_callable
@@ -357,9 +353,20 @@ class BRIX:
         backoff_base: float = 2.0,
         max_backoff: float = 60.0,
         retry_budget_seconds: float = 120.0,
-        # Still-unimplemented guards
-        loop_detection: bool = False,
+        # LoopGuard
+        exact_loop_detection: bool = False,
+        exact_loop_threshold: int = 3,
+        semantic_loop_detection: bool = False,
+        semantic_loop_threshold: float = 0.92,
+        on_loop: str = "inject_diversity",
+        diversity_attempts: int = 2,
+        loop_window: int = 10,
+        loop_diversity_prompt: str | None = None,
+        # ContextGuard
         max_context_tokens: int | None = None,
+        context_strategy: str = "sliding_window",
+        context_reserve_tokens: int = 500,
+        context_summary_model: str | None = None,
         # Regulated domain guard
         regulated_spec: str | Path | Any | None = None,
     ) -> BrixClient:
@@ -370,16 +377,19 @@ class BRIX:
         1. **BudgetGuard** — cheapest pre-check; blocks over-budget calls.
         2. **RateLimitGuard** — token bucket throttling to prevent 429.
         3. **TimeoutGuard** — sets timing context before the call.
-        4. **ObservabilityGuard** — always active; records start time in pre_call,
+        4. **LoopGuard** — detects infinite agent loops; injects diversity prompts.
+        5. **ContextGuard** — compresses conversation history to fit token budget.
+        6. **ObservabilityGuard** — always active; records start time in pre_call,
            writes validated response to audit log and DRE in post_call.
-        5. **SchemaGuard** — injects schema in pre_call; validates/heals in post_call.
-        6. **RetryGuard** — short-circuit guard; calls LLM with retry logic.
-        7. **RegulatedGuard** — domain policy enforcement (optional extra).
+        7. **SchemaGuard** — injects schema in pre_call; validates/heals in post_call.
+        8. **RetryGuard** — short-circuit guard; calls LLM with retry logic.
+        9. **RegulatedGuard** — domain policy enforcement (optional extra).
 
         The actual ``post_call`` execution order is the reverse:
-        Schema → Observability → Timeout → RateLimit → Budget.
-        This ensures SchemaGuard transforms the response before ObservabilityGuard
-        records it, and BudgetGuard can read the actual usage from the final response.
+        Schema → Observability → Context → Loop → Timeout → RateLimit → Budget.
+        LoopGuard and ContextGuard are placed before ObservabilityGuard so their
+        post_call hooks run; RetryGuard short-circuits, so any guard after it
+        cannot run post_call.
 
         Args:
             llm_client: Any supported LLM client (see :class:`BrixClient`).
@@ -414,8 +424,22 @@ class BRIX:
             backoff_base: Exponential backoff base. Default 2.0.
             max_backoff: Max backoff delay in seconds. Default 60.0.
             retry_budget_seconds: Total time budget for all retry delays. Default 120.0.
-            loop_detection: Not yet implemented.
-            max_context_tokens: Not yet implemented.
+            exact_loop_detection: Enable Tier 1 SHA-256 exact loop detection (LoopGuard).
+            exact_loop_threshold: Identical-response count that triggers detection. Default 3.
+            semantic_loop_detection: Enable Tier 2 cosine-similarity detection. Requires
+                ``pip install 'brix-protocol[semantic]'``.
+            semantic_loop_threshold: Cosine similarity threshold for semantic detection.
+                Default 0.92.
+            on_loop: ``"inject_diversity"`` (default) or ``"raise"``.
+            diversity_attempts: Max diversity injections before raising. Default 2.
+            loop_window: Rolling window size for loop history. Default 10.
+            loop_diversity_prompt: Custom diversity injection text. Uses built-in if None.
+            max_context_tokens: Max tokens per request; activates ContextGuard.
+            context_strategy: ``"sliding_window"`` (default), ``"summarize"``,
+                or ``"importance"``.
+            context_reserve_tokens: Tokens reserved for the model response. Default 500.
+            context_summary_model: Model for summarisation calls (ContextGuard). Uses
+                the main model if None.
             regulated_spec: Spec path or name for regulated-domain analysis (RegulatedGuard).
 
         Returns:
@@ -467,7 +491,39 @@ class BRIX:
                 )
             )
 
-        # 4. ObservabilityGuard — always active (buffer-only when log_path=None)
+        # 4. LoopGuard
+        if exact_loop_detection or semantic_loop_detection:
+            from brix.guards.loop import LoopGuard  # noqa: PLC0415
+
+            guards.append(
+                LoopGuard(
+                    exact_threshold=exact_loop_threshold,
+                    semantic_detection=semantic_loop_detection,
+                    semantic_threshold=semantic_loop_threshold,
+                    on_loop=on_loop,
+                    diversity_attempts=diversity_attempts,
+                    loop_window=loop_window,
+                    diversity_prompt=loop_diversity_prompt,
+                )
+            )
+
+        # 5. ContextGuard
+        if max_context_tokens is not None:
+            from brix.guards.context import ContextGuard  # noqa: PLC0415
+
+            guards.append(
+                ContextGuard(
+                    max_context_tokens,
+                    strategy=context_strategy,
+                    reserve_tokens=context_reserve_tokens,
+                    llm_callable=build_llm_callable(llm_client)
+                    if context_strategy == "summarize"
+                    else None,
+                    summary_model=context_summary_model,
+                )
+            )
+
+        # 6. ObservabilityGuard — always active (buffer-only when log_path=None)
         # Build guard_names from guards registered so far + those coming after
         # We build this list before constructing ObservabilityGuard so it includes
         # all guard names for the audit log.  The "future" names are known statically.
@@ -497,7 +553,7 @@ class BRIX:
         )
         guards.append(obs_guard)
 
-        # 5. SchemaGuard
+        # 7. SchemaGuard
         if response_schema is not None:
             from brix.guards.schema import SchemaGuard  # noqa: PLC0415
 
@@ -511,7 +567,7 @@ class BRIX:
                 )
             )
 
-        # 6. RetryGuard — short-circuit; calls LLM with retry logic
+        # 8. RetryGuard — short-circuit; calls LLM with retry logic
         if max_retries is not None:
             from brix.guards.retry import RetryGuard  # noqa: PLC0415
 
@@ -526,20 +582,7 @@ class BRIX:
                 )
             )
 
-        # Warn for still-unimplemented guards
-        _unimplemented: list[tuple[str, Any]] = [
-            ("loop_detection (LoopGuard)", loop_detection),
-            ("max_context_tokens (ContextGuard)", max_context_tokens),
-        ]
-        for param_name, value in _unimplemented:
-            if value is not None and value is not False:
-                warnings.warn(
-                    f"BRIX: {param_name} is not yet implemented and will be ignored. "
-                    "It will be active in a future sprint.",
-                    stacklevel=2,
-                )
-
-        # 7. RegulatedGuard
+        # 9. RegulatedGuard
         if regulated_spec is not None:
             try:
                 from brix.regulated._guard import RegulatedGuard  # noqa: PLC0415

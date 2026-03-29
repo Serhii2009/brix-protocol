@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg"
 """Tests for the InterceptorChain."""
 
 from __future__ import annotations
@@ -166,8 +167,6 @@ async def test_post_call_runs_in_reverse_order(
     assert a.post_calls == ["A"]
     assert b.post_calls == ["B"]
     assert c.post_calls == ["C"]
-    # Verify reverse order by checking the combined sequence
-    combined = a.post_calls + b.post_calls + c.post_calls
     # post_call runs C → B → A internally, but each guard records its own tag once
     # We verify that all ran, not the order here (order is inherent in the impl)
 

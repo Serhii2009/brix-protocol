@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-untyped-def,misc,type-arg,arg-type"
 """Tests for BRIX v0.3.0 architectural improvements."""
 
 from __future__ import annotations
